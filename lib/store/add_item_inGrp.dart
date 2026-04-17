@@ -1,6 +1,7 @@
 import 'package:app/core/global_user.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 class add_item extends StatefulWidget {
   const add_item({super.key});
@@ -12,123 +13,135 @@ class add_item extends StatefulWidget {
 class _add_itemState extends State<add_item> {
   String? selectedGroup;
   String? selectedSubgroup;
+  String? selectedUnit;
+
   final TextEditingController itemNumberController = TextEditingController();
+  final TextEditingController itemCodeController = TextEditingController();
+  final TextEditingController itemNameController = TextEditingController();
   final TextEditingController colorController = TextEditingController();
   final TextEditingController designController = TextEditingController();
   final TextEditingController stockController = TextEditingController();
+  final TextEditingController minStockController = TextEditingController();
   final TextEditingController sizeController = TextEditingController();
 
   List<String> groups = [];
   Map<String, List<String>> subgroups = {};
   bool isLoading = true;
 
+  // ✅ FIXED
   Future<String> getSystemIP() async {
-  try {
-    final response = await http.get(Uri.parse('https://api.ipify.org'));
-    if (response.statusCode == 200) {
-      return response.body;
+    try {
+      final response = await http.get(Uri.parse('https://api.ipify.org'));
+      if (response.statusCode == 200) {
+        return response.body;
+      }
+    } catch (e) {
+      debugPrint("IP Error: $e");
     }
-  } catch (e) {
-    debugPrint("IP Error: $e");
+    return 'Unknown IP';
   }
-  return 'Unknown IP';
-}
 
-  String get productName {
-    if (selectedGroup != null &&
-        selectedSubgroup != null &&
-        itemNumberController.text.isNotEmpty) {
-      return "${selectedGroup!}-${selectedSubgroup!}-${itemNumberController.text}";
+  @override
+  void initState() {
+    super.initState();
+    fetchGroups();
+  }
+
+  Future<void> fetchGroups() async {
+    var snapshot = await FirebaseFirestore.instance.collection("groups").get();
+
+    List<String> tempGroups = [];
+    Map<String, List<String>> tempSubgroups = {};
+
+    for (var doc in snapshot.docs) {
+      var data = doc.data();
+
+      String shortDesc = data['short_des'] ?? "";
+      List sub = List.from(data['subgroups'] ?? []);
+
+      if (shortDesc.isNotEmpty) {
+        tempGroups.add(shortDesc);
+        tempSubgroups[shortDesc] = sub.map((e) => e.toString()).toList();
+      }
     }
-    return "Product Name will appear here";
-  }
-  
-  get http => null;
 
+    setState(() {
+      groups = tempGroups;
+      subgroups = tempSubgroups;
+      isLoading = false;
+    });
+  }
+
+  // ✅ FINAL SAVE FUNCTION
   Future<void> saveItem() async {
-  if (selectedGroup == null ||
-      selectedSubgroup == null ||
-      itemNumberController.text.isEmpty) {
-    _showError("Fill required fields");
-    return;
-  }
-
-  try {
-    String itemCode = productName;
-
-    String color = colorController.text.trim();
-    String design = designController.text.trim();
-    int stock = int.tryParse(stockController.text) ?? 0;
-    int size = int.tryParse(sizeController.text) ?? 0;
-
-    String systemIP = await getSystemIP(); // ✅ use your function
-    String userName = currentUser?['username'] ?? "unknown";
-
-    var query = await FirebaseFirestore.instance
-        .collection("groups")
-        .where("short_des", isEqualTo: selectedGroup)
-        .get();
-
-    if (query.docs.isEmpty) {
-      _showError("Group not found");
+    if (selectedGroup == null ||
+        selectedSubgroup == null ||
+        itemCodeController.text.isEmpty ||
+        itemNameController.text.isEmpty) {
+      _showError("Fill required fields");
       return;
     }
 
-    var doc = query.docs.first;
-    var groupData = doc.data();
+    try {
+      String systemIP = await getSystemIP();
+      String userName = currentUser?['username'] ?? "unknown";
 
-    String groupName = groupData['name'] ?? selectedGroup;
+      var query = await FirebaseFirestore.instance
+          .collection("groups")
+          .where("short_des", isEqualTo: selectedGroup)
+          .get();
 
-    // ✅ 1. update group
-    await FirebaseFirestore.instance
-        .collection("groups")
-        .doc(doc.id)
-        .update({
-      "items": FieldValue.arrayUnion([itemCode])
-    });
+      if (query.docs.isEmpty) {
+        _showError("Group not found");
+        return;
+      }
 
-    // ✅ 2. save full item
-    await FirebaseFirestore.instance.collection("Items").add({
-      "Color": color,
-      "Design_No": design,
-      "Opening_Stock": stock,
-      "Size": size,
+      var doc = query.docs.first;
+      var groupData = doc.data();
 
-      "Group_ID": selectedGroup,
-      "Group_Name": groupName,
+      String groupName = groupData['name'] ?? selectedGroup!;
 
-      "SubGroup_ID": selectedSubgroup,
-      "SubGroup_Name": selectedSubgroup,
+      // 🔥 Update group
+      await FirebaseFirestore.instance.collection("groups").doc(doc.id).update({
+        "items": FieldValue.arrayUnion([itemCodeController.text.trim()])
+      });
 
-      "Item_Code": itemCode,
-      "Item_Name": "",
-      "Print_Name": "",
+      // 🔥 Save item
+      await FirebaseFirestore.instance.collection("Items").add({
+        "Color": colorController.text.trim(),
+        "Design_No": designController.text.trim(),
+        "Opening_Stock": int.tryParse(stockController.text) ?? 0,
+        "Minimum_Stock": int.tryParse(minStockController.text) ?? 0,
+        "Size": int.tryParse(sizeController.text) ?? 0,
+        "Unit": selectedUnit ?? "",
+        "Group_ID": selectedGroup,
+        "Group_Name": groupName,
+        "SubGroup_ID": selectedSubgroup,
+        "SubGroup_Name": selectedSubgroup,
+        "Item_Code": itemCodeController.text.trim(),
+        "Item_Name": itemNameController.text.trim(),
+        "Print_Name": itemNameController.text.trim(),
+        "Created_By": userName,
+        "User_Name": userName,
+        "System_IP": systemIP,
+        "Create_at": FieldValue.serverTimestamp(),
+        "Status": true,
+      });
 
-      "Created_By": userName,
-      "User_Name": userName,
+      _showSuccess("Item Added Successfully!");
 
-      "System_IP": systemIP,
-
-      "Create_at": FieldValue.serverTimestamp(),
-
-      "Minimum_Stock": 0,
-      "Unit": "",
-      "Status": true,
-    });
-
-    _showSuccess("Item Added Successfully!");
-
-    // clear fields
-    itemNumberController.clear();
-    colorController.clear();
-    designController.clear();
-    stockController.clear();
-    sizeController.clear();
-
-  } catch (e) {
-    _showError("Error: $e");
+      // clear
+      itemCodeController.clear();
+      itemNameController.clear();
+      colorController.clear();
+      designController.clear();
+      stockController.clear();
+      minStockController.clear();
+      sizeController.clear();
+    } catch (e) {
+      _showError("Error: $e");
+    }
   }
-}
 
   void _showError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -145,47 +158,17 @@ class _add_itemState extends State<add_item> {
   @override
   void dispose() {
     itemNumberController.dispose();
+    itemCodeController.dispose();
+    itemNameController.dispose();
+    colorController.dispose();
+    designController.dispose();
+    stockController.dispose();
+    minStockController.dispose();
+    sizeController.dispose();
     super.dispose();
   }
 
   @override
-  void initState() {
-    super.initState();
-    fetchGroups();
-  }
-
-  Future<void> fetchGroups() async {
-    try {
-      var snapshot =
-          await FirebaseFirestore.instance.collection("groups").get();
-
-      List<String> tempGroups = [];
-      Map<String, List<String>> tempSubgroups = {};
-
-      for (var doc in snapshot.docs) {
-        var data = doc.data();
-
-        String shortDesc = data['short_des'] ?? "";
-        List sub = List.from(data['subgroups'] ?? []);
-
-        if (shortDesc.isNotEmpty) {
-          tempGroups.add(shortDesc);
-          tempSubgroups[shortDesc] = sub.map((e) => e.toString()).toList();
-        }
-      }
-
-      setState(() {
-        groups = tempGroups;
-        subgroups = tempSubgroups;
-        selectedGroup = null;
-        selectedSubgroup = null;
-        isLoading = false;
-      });
-    } catch (e) {
-      debugPrint("Fetch error: $e");
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -219,11 +202,10 @@ class _add_itemState extends State<add_item> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              // 🔹 Header
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 8,
-                                ),
+                                    horizontal: 12, vertical: 8),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFDCEBFA),
                                   borderRadius: BorderRadius.circular(999),
@@ -237,33 +219,32 @@ class _add_itemState extends State<add_item> {
                                 ),
                               ),
                               const SizedBox(height: 18),
+
                               Text(
-                                "Create a structured product entry",
+                                "Create Item",
                                 style: theme.textTheme.headlineSmall?.copyWith(
-                                  color: const Color(0xFF102A43),
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
-                              const SizedBox(height: 8),
-                              Text(
-                                "Select the category, refine the subgroup, and assign an item number to generate a consistent product name.",
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: const Color(0xFF52606D),
-                                  height: 1.5,
-                                ),
-                              ),
-                              const SizedBox(height: 28),
-                              DropdownButtonFormField<String>(
-                                decoration: const InputDecoration(
-                                  labelText: "Short Desc of Group",
-                                  prefixIcon: Icon(Icons.category_outlined),
-                                ),
+
+                              const SizedBox(height: 24),
+
+                              // 🔹 GROUP SECTION
+                              const Text("Group Info",
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold)),
+
+                              const SizedBox(height: 12),
+
+                              DropdownButtonFormField(
                                 value: selectedGroup,
+                                decoration: const InputDecoration(
+                                  labelText: "Group",
+                                  prefixIcon: Icon(Icons.category),
+                                ),
                                 items: groups
-                                    .map((group) => DropdownMenuItem(
-                                          value: group,
-                                          child: Text(group),
-                                        ))
+                                    .map((e) => DropdownMenuItem(
+                                        value: e, child: Text(e)))
                                     .toList(),
                                 onChanged: (val) {
                                   setState(() {
@@ -272,130 +253,147 @@ class _add_itemState extends State<add_item> {
                                   });
                                 },
                               ),
-                              const SizedBox(height: 18),
-                              DropdownButtonFormField<String>(
+
+                              const SizedBox(height: 12),
+
+                              DropdownButtonFormField(
+                                value: selectedSubgroup,
                                 decoration: const InputDecoration(
                                   labelText: "Subgroup",
-                                  prefixIcon: Icon(Icons.account_tree_outlined),
+                                  prefixIcon: Icon(Icons.account_tree),
                                 ),
-                                value: selectedSubgroup,
                                 items: selectedGroup == null
                                     ? []
                                     : subgroups[selectedGroup]!
-                                        .map((subgroup) => DropdownMenuItem(
-                                              value: subgroup,
-                                              child: Text(subgroup),
-                                            ))
+                                        .map((e) => DropdownMenuItem(
+                                            value: e, child: Text(e)))
                                         .toList(),
                                 onChanged: (val) {
                                   setState(() {
-                                    selectedSubgroup = val;
+                                    selectedSubgroup = val as String?;
                                   });
                                 },
                               ),
-                              const SizedBox(height: 18),
+
+                              const SizedBox(height: 20),
+
+                              // 🔹 ITEM SECTION
+                              const Text("Item Details",
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold)),
+
+                              const SizedBox(height: 12),
+
                               TextField(
-                                controller: itemNumberController,
+                                controller: itemCodeController,
                                 decoration: const InputDecoration(
-                                  labelText: "Item Number",
-                                  prefixIcon: Icon(Icons.tag_outlined),
-                                ),
-                                onChanged: (_) => setState(() {}),
-                              ),
-                              const SizedBox(height: 28),
-                              Text(
-                                "Generated Product Name",
-                                style: theme.textTheme.labelLarge?.copyWith(
-                                  color: const Color(0xFF52606D),
-                                  fontWeight: FontWeight.w600,
+                                  labelText: "Item Code",
+                                  prefixIcon: Icon(Icons.qr_code),
                                 ),
                               ),
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(18),
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [
-                                      Color(0xFFF8FBFF),
-                                      Color(0xFFEEF4FA)
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(18),
-                                  border: Border.all(
-                                      color: const Color(0xFFD9E2EC)),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(10),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: const Icon(
-                                        Icons.inventory_2_outlined,
-                                        color: Color(0xFF1D4E89),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 14),
-                                    Expanded(
-                                      child: Text(
-                                        productName,
-                                        style: theme.textTheme.titleMedium
-                                            ?.copyWith(
-                                          color: const Color(0xFF102A43),
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+
+                              const SizedBox(height: 12),
+
+                              TextField(
+                                controller: itemNameController,
+                                decoration: const InputDecoration(
+                                  labelText: "Item Name",
+                                  prefixIcon: Icon(Icons.label),
                                 ),
                               ),
-                              const SizedBox(height: 10),
-                              const SizedBox(height: 18),
+
+                              const SizedBox(height: 20),
+
+                              // 🔹 EXTRA DETAILS
+                              const Text("Additional Details",
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold)),
+
+                              const SizedBox(height: 12),
+
                               TextField(
                                 controller: colorController,
                                 decoration: const InputDecoration(
                                   labelText: "Color",
-                                  prefixIcon: Icon(Icons.color_lens_outlined),
+                                  prefixIcon: Icon(Icons.color_lens),
                                 ),
                               ),
-                              const SizedBox(height: 18),
+
+                              const SizedBox(height: 12),
+
                               TextField(
                                 controller: designController,
                                 decoration: const InputDecoration(
-                                  labelText: "Design Number",
-                                  prefixIcon:
-                                      Icon(Icons.design_services_outlined),
+                                  labelText: "Design No",
+                                  prefixIcon: Icon(Icons.design_services),
                                 ),
                               ),
-                              const SizedBox(height: 18),
-                              TextField(
-                                controller: stockController,
-                                keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(
-                                  labelText: "Opening Stock",
-                                  prefixIcon: Icon(Icons.inventory_outlined),
-                                ),
+
+                              const SizedBox(height: 12),
+
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      controller: stockController,
+                                      decoration: const InputDecoration(
+                                        labelText: "Opening Stock",
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: TextField(
+                                      controller: minStockController,
+                                      decoration: const InputDecoration(
+                                        labelText: "Min Stock",
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 18),
-                              TextField(
-                                controller: sizeController,
-                                keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(
-                                  labelText: "Size",
-                                  prefixIcon: Icon(Icons.straighten_outlined),
-                                ),
+
+                              const SizedBox(height: 12),
+
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      controller: sizeController,
+                                      decoration: const InputDecoration(
+                                        labelText: "Size",
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: DropdownButtonFormField(
+                                      value: selectedUnit,
+                                      decoration: const InputDecoration(
+                                        labelText: "Unit",
+                                      ),
+                                      items: ["Meter", "KG", "Foot"]
+                                          .map((e) => DropdownMenuItem(
+                                              value: e, child: Text(e)))
+                                          .toList(),
+                                      onChanged: (val) {
+                                        setState(() {
+                                          selectedUnit = val;
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                ],
                               ),
-                              
+
                               const SizedBox(height: 28),
+
+                              // 🔹 BUTTON
                               SizedBox(
                                 width: double.infinity,
                                 child: ElevatedButton.icon(
-                                  onPressed: () {
-                                    saveItem();
-                                  },
-                                  icon: const Icon(Icons.add_business_outlined),
+                                  onPressed: saveItem,
+                                  icon: const Icon(Icons.add),
                                   label: const Text("Add Product"),
                                 ),
                               ),
