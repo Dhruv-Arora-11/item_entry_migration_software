@@ -372,7 +372,7 @@ class _add_itemState extends State<add_item> {
                                       decoration: const InputDecoration(
                                         labelText: "Unit",
                                       ),
-                                      items: ["Meter", "KG", "Foot"]
+                                      items:  ["No", "Square Foot", "Square Meter", "Meter", "KG", "Foot"]
                                           .map((e) => DropdownMenuItem(
                                               value: e, child: Text(e)))
                                           .toList(),
