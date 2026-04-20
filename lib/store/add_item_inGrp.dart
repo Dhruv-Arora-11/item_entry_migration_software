@@ -21,14 +21,23 @@ class _add_itemState extends State<add_item> {
   final TextEditingController colorController = TextEditingController();
   final TextEditingController designController = TextEditingController();
   final TextEditingController stockController = TextEditingController();
-  final TextEditingController minStockController = TextEditingController();
+  final TextEditingController amountController = TextEditingController();
   final TextEditingController sizeController = TextEditingController();
+  final TextEditingController minStockController = TextEditingController();
 
   List<String> groups = [];
   Map<String, List<String>> subgroups = {};
   bool isLoading = true;
 
-  // ✅ FIXED
+  String get generatedItemCode {
+    if (selectedGroup != null &&
+        selectedSubgroup != null &&
+        itemNumberController.text.isNotEmpty) {
+      return "${selectedGroup!}-${selectedSubgroup!}-${itemNumberController.text}";
+    }
+    return "";
+  }
+
   Future<String> getSystemIP() async {
     try {
       final response = await http.get(Uri.parse('https://api.ipify.org'));
@@ -72,11 +81,10 @@ class _add_itemState extends State<add_item> {
     });
   }
 
-  // ✅ FINAL SAVE FUNCTION
   Future<void> saveItem() async {
     if (selectedGroup == null ||
         selectedSubgroup == null ||
-        itemCodeController.text.isEmpty ||
+        itemNumberController.text.isEmpty ||
         itemNameController.text.isEmpty) {
       _showError("Fill required fields");
       return;
@@ -111,14 +119,14 @@ class _add_itemState extends State<add_item> {
         "Color": colorController.text.trim(),
         "Design_No": designController.text.trim(),
         "Opening_Stock": int.tryParse(stockController.text) ?? 0,
-        "Minimum_Stock": int.tryParse(minStockController.text) ?? 0,
+        "Amount": int.tryParse(amountController.text) ?? 0,
         "Size": int.tryParse(sizeController.text) ?? 0,
         "Unit": selectedUnit ?? "",
         "Group_ID": selectedGroup,
         "Group_Name": groupName,
         "SubGroup_ID": selectedSubgroup,
         "SubGroup_Name": selectedSubgroup,
-        "Item_Code": itemCodeController.text.trim(),
+        "Item_Code": generatedItemCode,
         "Item_Name": itemNameController.text.trim(),
         "Print_Name": itemNameController.text.trim(),
         "Created_By": userName,
@@ -126,6 +134,7 @@ class _add_itemState extends State<add_item> {
         "System_IP": systemIP,
         "Create_at": FieldValue.serverTimestamp(),
         "Status": true,
+        "Min_Stock": minStockController.text.trim(),
       });
 
       _showSuccess("Item Added Successfully!");
@@ -136,8 +145,9 @@ class _add_itemState extends State<add_item> {
       colorController.clear();
       designController.clear();
       stockController.clear();
-      minStockController.clear();
+      amountController.clear();
       sizeController.clear();
+      minStockController.clear();
     } catch (e) {
       _showError("Error: $e");
     }
@@ -163,12 +173,12 @@ class _add_itemState extends State<add_item> {
     colorController.dispose();
     designController.dispose();
     stockController.dispose();
-    minStockController.dispose();
+    amountController.dispose();
     sizeController.dispose();
+    minStockController.dispose();
     super.dispose();
   }
 
-  @override
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -284,11 +294,45 @@ class _add_itemState extends State<add_item> {
 
                               const SizedBox(height: 12),
 
+                              //item number 
                               TextField(
-                                controller: itemCodeController,
+                                controller: itemNumberController,
                                 decoration: const InputDecoration(
-                                  labelText: "Item Code",
-                                  prefixIcon: Icon(Icons.qr_code),
+                                  labelText: "Item Number",
+                                  prefixIcon: Icon(Icons.numbers),
+                                ),
+                                onChanged: (_) =>
+                                    setState(() {}), // 🔥 IMPORTANT
+                              ),
+
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 18),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                      color: const Color(0xFFD9E2EC)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.qr_code,
+                                        color: Color(0xFF1D4E89)),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        generatedItemCode.isEmpty
+                                            ? "Item Code (Auto Generated)"
+                                            : generatedItemCode,
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF102A43),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
 
@@ -304,7 +348,7 @@ class _add_itemState extends State<add_item> {
 
                               const SizedBox(height: 20),
 
-                              // 🔹 EXTRA DETAILS
+                              // 🔹 Additional DETAILS
                               const Text("Additional Details",
                                   style:
                                       TextStyle(fontWeight: FontWeight.bold)),
@@ -344,9 +388,9 @@ class _add_itemState extends State<add_item> {
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: TextField(
-                                      controller: minStockController,
+                                      controller: amountController,
                                       decoration: const InputDecoration(
-                                        labelText: "Min Stock",
+                                        labelText: "Amount",
                                       ),
                                     ),
                                   ),
@@ -372,7 +416,14 @@ class _add_itemState extends State<add_item> {
                                       decoration: const InputDecoration(
                                         labelText: "Unit",
                                       ),
-                                      items:  ["No", "Square Foot", "Square Meter", "Meter", "KG", "Foot"]
+                                      items: [
+                                        "No",
+                                        "Square Foot",
+                                        "Square Meter",
+                                        "Meter",
+                                        "KG",
+                                        "Foot"
+                                      ]
                                           .map((e) => DropdownMenuItem(
                                               value: e, child: Text(e)))
                                           .toList(),
@@ -384,6 +435,15 @@ class _add_itemState extends State<add_item> {
                                     ),
                                   ),
                                 ],
+                              ),
+
+                              const SizedBox(height: 28),
+
+                              TextField(
+                                controller: minStockController,
+                                decoration: const InputDecoration(
+                                  labelText: "Minimum Stock",
+                                ),
                               ),
 
                               const SizedBox(height: 28),

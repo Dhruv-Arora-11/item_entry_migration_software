@@ -87,6 +87,9 @@ class _AddNewGroupState extends State<AddNewGroup> {
           ),
         );
       }
+
+      _shortdescController.clear();
+      _groupNameController.clear();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

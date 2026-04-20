@@ -92,6 +92,10 @@ class _AddToExistingGroupState extends State<AddToExistingGroup> {
       const SnackBar(content: Text("Updated successfully")),
     );
 
+    _subgroupController.clear();
+    _userController.clear();
+    selectedGroup = "";
+
   } catch (e) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text("Error: $e")),

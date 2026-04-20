@@ -1,7 +1,10 @@
+import 'dart:js_interop';
+
 import 'package:app/HomeScreen.dart';
 import 'package:app/store/super_admin.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:app/core/global_user.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,7 +18,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
 
   bool isLoading = false;
-  var currentUser;
 
   Future<void> login() async {
     String username = _usernameController.text.trim();
