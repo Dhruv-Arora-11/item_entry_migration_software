@@ -230,7 +230,7 @@ class _add_itemState extends State<add_item> {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          "Store Manager",
+          "ERP-KTPL",
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
       ),
