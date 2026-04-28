@@ -1,4 +1,4 @@
-import 'package:app/store/reading_store.dart';
+import 'package:app/store/viewing_item.dart';
 import 'package:flutter/material.dart';
 import 'package:app/store/add_item_inGrp.dart';
 import 'package:app/store/add_new_grp.dart';
@@ -115,6 +115,7 @@ class HomeScreen extends StatelessWidget {
                     subtitle: "Add a new item group",
                     icon: Icons.add_box_outlined,
                     onTap: () {
+                      FocusScope.of(context).unfocus();
                       Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => const AddNewGroup()),
@@ -129,6 +130,7 @@ class HomeScreen extends StatelessWidget {
                     subtitle: "Add users or subgroups",
                     icon: Icons.edit_outlined,
                     onTap: () {
+                      FocusScope.of(context).unfocus();
                       Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -144,10 +146,11 @@ class HomeScreen extends StatelessWidget {
                     subtitle: "Read all groups",
                     icon: Icons.visibility_outlined,
                     onTap: () {
+                      FocusScope.of(context).unfocus();
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (_) => const ViewGroupsScreen()),
+                            builder: (_) => const GroupSubgroupItemsView()),
                       );
                     },
                   ),
@@ -160,6 +163,7 @@ class HomeScreen extends StatelessWidget {
                     subtitle: "Add items to existing groups",
                     icon: Icons.inventory_2_outlined,
                     onTap: () {
+                      FocusScope.of(context).unfocus();
                       Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => const add_item()),

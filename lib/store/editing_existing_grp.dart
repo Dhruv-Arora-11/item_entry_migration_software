@@ -23,43 +23,56 @@ class _AddToExistingGroupState extends State<AddToExistingGroup> {
     fetchGroups();
   }
 
-  Future<void> fetchGroups() async {
-    var snapshot =
-        await FirebaseFirestore.instance.collection("groups").get();
+  Future<int> getNextSubgroupNumber() async {
+    var ref = FirebaseFirestore.instance
+        .collection("counters")
+        .doc("subgroup_counter");
 
-    List<String> temp = [];
+    return FirebaseFirestore.instance.runTransaction((tx) async {
+      var snap = await tx.get(ref);
 
-    for (var doc in snapshot.docs) {
-      var data = doc.data();
-      if (data['short_des'] != null) {
-        temp.add(data['short_des']);
-      }
-    }
+      int current = snap.exists ? snap['value'] : 0;
+      int next = current + 1;
 
-    setState(() {
-      groups = temp.toSet().toList(); // remove duplicates
-      selectedGroup = null;
-      isLoading = false;
+      tx.set(ref, {"value": next});
+
+      return next;
     });
   }
 
-  Future<void> updateGroup() async {
-  // ❌ if no group selected
+Future<void> fetchGroups() async {
+  var snapshot =
+      await FirebaseFirestore.instance.collection("groups").get();
+
+  List<String> temp = []; // all short descriptions
+
+  for (var doc in snapshot.docs) {
+    var data = doc.data();
+
+    String shortDesc = data['short_des'] ?? "";
+
+    if (shortDesc.isNotEmpty) {
+      temp.add(shortDesc);
+    }
+  }
+
+  setState(() {
+    groups = temp.toSet().toList(); // remove duplicates
+    selectedGroup = null;
+    isLoading = false;
+  });
+}
+Future<void> updateGroup() async {
   if (selectedGroup == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Please select a group")),
-    );
+    _show("Please select a group");
     return;
   }
 
   String subgroup = _subgroupController.text.trim();
   String user = _userController.text.trim();
 
-  // ❌ if both empty
   if (subgroup.isEmpty && user.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Enter subgroup or user ID")),
-    );
+    _show("Enter subgroup or user ID");
     return;
   }
 
@@ -72,14 +85,48 @@ class _AddToExistingGroupState extends State<AddToExistingGroup> {
     if (query.docs.isEmpty) return;
 
     var doc = query.docs.first;
+    var docData = doc.data();
 
     Map<String, dynamic> data = {};
 
+    // 🔹 SUBGROUP FIX (IMPORTANT)
     if (subgroup.isNotEmpty) {
-      data["subgroups"] = FieldValue.arrayUnion([subgroup]);
+      var existingSubgroups = List.from(docData['subgroups'] ?? []);
+
+      bool exists = false;
+
+      for (var e in existingSubgroups) {
+        if (e is Map && e['name'] == subgroup) {
+          exists = true;
+        } else if (e is String && e == subgroup) {
+          exists = true;
+        }
+      }
+
+      if (exists) {
+        _show("Subgroup already exists");
+        return;
+      }
+
+      int subGroup_number = await getNextSubgroupNumber();
+
+      data["subgroups"] = FieldValue.arrayUnion([
+        {
+          "name": subgroup,
+          "subgroup_no": subGroup_number,
+        }
+      ]);
     }
 
+    // 🔹 USER FIX
     if (user.isNotEmpty) {
+      var users = List.from(docData['users_allowed'] ?? []);
+
+      if (users.contains(user)) {
+        _show("User already exists");
+        return;
+      }
+
       data["users_allowed"] = FieldValue.arrayUnion([user]);
     }
 
@@ -88,20 +135,24 @@ class _AddToExistingGroupState extends State<AddToExistingGroup> {
         .doc(doc.id)
         .update(data);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Updated successfully")),
-    );
+    _show("Updated successfully");
 
     _subgroupController.clear();
     _userController.clear();
-    selectedGroup = "";
 
+    setState(() {
+      selectedGroup = null;
+    });
   } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Error: $e")),
-    );
+    _show("Error: $e");
   }
 }
+  void _show(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg)),
+    );
+  }
+
   @override
   void dispose() {
     _subgroupController.dispose();
@@ -123,9 +174,8 @@ class _AddToExistingGroupState extends State<AddToExistingGroup> {
                     decoration: const InputDecoration(
                       labelText: "Select Group (Short Desc)",
                     ),
-                    value: groups.contains(selectedGroup)
-                        ? selectedGroup
-                        : null,
+                    value:
+                        groups.contains(selectedGroup) ? selectedGroup : null,
                     items: groups
                         .map((g) => DropdownMenuItem(
                               value: g,
@@ -139,7 +189,6 @@ class _AddToExistingGroupState extends State<AddToExistingGroup> {
                     },
                   ),
                   const SizedBox(height: 16),
-
                   TextFormField(
                     controller: _subgroupController,
                     decoration: const InputDecoration(
@@ -147,7 +196,6 @@ class _AddToExistingGroupState extends State<AddToExistingGroup> {
                     ),
                   ),
                   const SizedBox(height: 16),
-
                   TextFormField(
                     controller: _userController,
                     decoration: const InputDecoration(
@@ -155,7 +203,6 @@ class _AddToExistingGroupState extends State<AddToExistingGroup> {
                     ),
                   ),
                   const SizedBox(height: 24),
-
                   ElevatedButton(
                     onPressed: updateGroup,
                     child: const Text("Update"),

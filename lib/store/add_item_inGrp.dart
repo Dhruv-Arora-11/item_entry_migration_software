@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:app/core/global_user.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -8,7 +10,6 @@ class add_item extends StatefulWidget {
 
   @override
   _add_itemState createState() => _add_itemState();
-  
 }
 
 class _add_itemState extends State<add_item> {
@@ -16,7 +17,6 @@ class _add_itemState extends State<add_item> {
   String? selectedSubgroup;
   String? selectedUnit;
 
-  final TextEditingController itemNumberController = TextEditingController();
   final TextEditingController itemCodeController = TextEditingController();
   final TextEditingController itemNameController = TextEditingController();
   final TextEditingController colorController = TextEditingController();
@@ -27,16 +27,26 @@ class _add_itemState extends State<add_item> {
   final TextEditingController minStockController = TextEditingController();
 
   List<String> groups = [];
-  Map<String, List<String>> subgroups = {};
+  Map<String, List<Map<String, dynamic>>> subgroups = {};
+  Map<String, int> subgroupNumbers = {};
   bool isLoading = true;
 
-  String get generatedItemCode {
-    if (selectedGroup != null &&
-        selectedSubgroup != null &&
-        itemNumberController.text.isNotEmpty) {
-      return "${selectedGroup!}-${selectedSubgroup!}-${itemNumberController.text}";
-    }
-    return "";
+  Future<int> getNextItemNumber(String groupDocId) async {
+    var ref = FirebaseFirestore.instance
+        .collection("groups")
+        .doc(groupDocId)
+        .collection("meta")
+        .doc("item_counter");
+
+    return FirebaseFirestore.instance.runTransaction((tx) async {
+      var snap = await tx.get(ref);
+
+      int current = snap.exists ? snap['value'] : 0;
+      int next = current + 1;
+
+      tx.set(ref, {"value": next});
+      return next;
+    });
   }
 
   Future<String> getSystemIP() async {
@@ -51,41 +61,65 @@ class _add_itemState extends State<add_item> {
     return 'Unknown IP';
   }
 
+  String get generatedItemCode {
+    if (selectedGroup == null || selectedSubgroup == null) {
+      return "";
+    }
+
+    int subgroupNo = subgroupNumbers["$selectedGroup-$selectedSubgroup"] ?? 0;
+
+
+    return "G- $selectedGroup | SG-$subgroupNo | Auto";
+  }
+
   @override
   void initState() {
     super.initState();
     fetchGroups();
   }
 
-  Future<void> fetchGroups() async {
-    var snapshot = await FirebaseFirestore.instance.collection("groups").get();
+ Future<void> fetchGroups() async {
+  var snapshot = await FirebaseFirestore.instance.collection("groups").get();
 
-    List<String> tempGroups = [];
-    Map<String, List<String>> tempSubgroups = {};
+  List<String> tempGroups = [];
+  Map<String, List<Map<String, dynamic>>> tempSubgroups = {};
+  Map<String, int> tempSubgroupNumbers = {};
 
-    for (var doc in snapshot.docs) {
-      var data = doc.data();
+  for (var doc in snapshot.docs) {
+    var data = doc.data();
 
-      String shortDesc = data['short_des'] ?? "";
-      List sub = List.from(data['subgroups'] ?? []);
+    String shortDesc = data['short_des'] ?? "";
+    List sub = List.from(data['subgroups'] ?? []);
 
-      if (shortDesc.isNotEmpty) {
-        tempGroups.add(shortDesc);
-        tempSubgroups[shortDesc] = sub.map((e) => e.toString()).toList();
+    List<Map<String, dynamic>> cleanSubgroups = [];
+
+    for (var s in sub) {
+      if (s is Map<String, dynamic>) {
+        cleanSubgroups.add(s);
+
+        tempSubgroupNumbers["$shortDesc-${s['name']}"] =
+            s['subgroup_no'];
       }
     }
 
-    setState(() {
-      groups = tempGroups;
-      subgroups = tempSubgroups;
-      isLoading = false;
-    });
+    if (shortDesc.isNotEmpty) {
+      tempGroups.add(shortDesc);
+      tempSubgroups[shortDesc] = cleanSubgroups;
+    }
   }
+
+  setState(() {
+    groups = tempGroups;
+    subgroups = tempSubgroups;
+    subgroupNumbers = tempSubgroupNumbers;
+    isLoading = false;
+  });
+}
+
 
   Future<void> saveItem() async {
     if (selectedGroup == null ||
         selectedSubgroup == null ||
-        itemNumberController.text.isEmpty ||
         itemNameController.text.isEmpty) {
       _showError("Fill required fields");
       return;
@@ -107,17 +141,25 @@ class _add_itemState extends State<add_item> {
 
       var doc = query.docs.first;
       var groupData = doc.data();
+      int groupNo = groupData['group_no'] ?? 0;
+
+      int subgroupNo = subgroupNumbers["$selectedGroup-$selectedSubgroup"] ?? 0;
+      int itemNo = await getNextItemNumber(doc.id);
+
+      String itemCode = "$groupNo-$subgroupNo-$itemNo";
 
       String groupName = groupData['name'] ?? selectedGroup!;
 
       // 🔥 Update group
       await FirebaseFirestore.instance.collection("groups").doc(doc.id).update({
-        "items": FieldValue.arrayUnion([itemCodeController.text.trim()])
+        "items": FieldValue.arrayUnion([itemCode])
       });
 
       // 🔥 Save item
       await FirebaseFirestore.instance.collection("Items").add({
-        "Color": colorController.text.trim(),
+        "Color": colorController.text.trim().isEmpty
+            ? "None"
+            : colorController.text.trim(),
         "Design_No": designController.text.trim(),
         "Opening_Stock": int.tryParse(stockController.text) ?? 0,
         "Amount": int.tryParse(amountController.text) ?? 0,
@@ -127,15 +169,17 @@ class _add_itemState extends State<add_item> {
         "Group_Name": groupName,
         "SubGroup_ID": selectedSubgroup,
         "SubGroup_Name": selectedSubgroup,
-        "Item_Code": generatedItemCode,
+        "Item_Code": itemCode,
+        "Item_No": itemNo,
+        "Group_No": groupNo,
+        "SubGroup_No": subgroupNo,
         "Item_Name": itemNameController.text.trim(),
-        "Print_Name": itemNameController.text.trim(),
         "Created_By": userName,
         "User_Name": userName,
         "System_IP": systemIP,
         "Create_at": FieldValue.serverTimestamp(),
         "Status": true,
-        "Min_Stock": minStockController.text.trim(),
+        "Min_Stock": int.tryParse(minStockController.text) ?? 0
       });
 
       _showSuccess("Item Added Successfully!");
@@ -168,7 +212,6 @@ class _add_itemState extends State<add_item> {
 
   @override
   void dispose() {
-    itemNumberController.dispose();
     itemCodeController.dispose();
     itemNameController.dispose();
     colorController.dispose();
@@ -277,7 +320,9 @@ class _add_itemState extends State<add_item> {
                                     ? []
                                     : subgroups[selectedGroup]!
                                         .map((e) => DropdownMenuItem(
-                                            value: e, child: Text(e)))
+                                              value: e['name'],
+                                              child: Text(e['name']),
+                                            ))
                                         .toList(),
                                 onChanged: (val) {
                                   setState(() {
@@ -294,17 +339,6 @@ class _add_itemState extends State<add_item> {
                                       TextStyle(fontWeight: FontWeight.bold)),
 
                               const SizedBox(height: 12),
-
-                              //item number 
-                              TextField(
-                                controller: itemNumberController,
-                                decoration: const InputDecoration(
-                                  labelText: "Item Number",
-                                  prefixIcon: Icon(Icons.numbers),
-                                ),
-                                onChanged: (_) =>
-                                    setState(() {}), // 🔥 IMPORTANT
-                              ),
 
                               Container(
                                 width: double.infinity,

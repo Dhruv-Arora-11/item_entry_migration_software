@@ -1,3 +1,6 @@
+import 'package:app/store/Item_related_services.dart';
+import 'package:app/store/viewing_item.dart';
+import 'package:app/super_admin/adminPermissionScreen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -18,9 +21,9 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
   bool delete = false;
 
   String role = "user";
-
   bool isLoading = false;
 
+  // ✅ CREATE USER
   Future<void> createUser() async {
     String username = usernameController.text.trim();
     String password = passwordController.text.trim();
@@ -35,7 +38,6 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
     setState(() => isLoading = true);
 
     try {
-      // ✅ Check duplicate user
       var existing = await FirebaseFirestore.instance
           .collection("users")
           .where("username", isEqualTo: username)
@@ -49,7 +51,6 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
         return;
       }
 
-      // ✅ Add user
       await FirebaseFirestore.instance.collection("users").add({
         "username": username,
         "password": password,
@@ -66,15 +67,11 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
         const SnackBar(content: Text("User created successfully")),
       );
 
-      // ✅ Reset fields
       usernameController.clear();
       passwordController.clear();
 
       setState(() {
-        create = false;
-        read = false;
-        update = false;
-        delete = false;
+        create = read = update = delete = false;
         role = "user";
       });
     } catch (e) {
@@ -84,6 +81,22 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
     }
 
     setState(() => isLoading = false);
+  }
+
+  // 🔓 GIVE PERMISSION
+  Future<void> unlockItem(String docId) async {
+    await FirebaseFirestore.instance.collection("Items").doc(docId).update({
+      "edit_unlocked": true,
+      "edit_unlocked_by": "super_admin",
+      "edit_unlocked_at": FieldValue.serverTimestamp(),
+    });
+  }
+
+  // 🔒 LOCK AGAIN
+  Future<void> lockItem(String docId) async {
+    await FirebaseFirestore.instance.collection("Items").doc(docId).update({
+      "edit_unlocked": false,
+    });
   }
 
   @override
@@ -101,7 +114,7 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // Username
+            // 🔹 USER CREATION
             TextField(
               controller: usernameController,
               decoration: const InputDecoration(
@@ -111,7 +124,6 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Password
             TextField(
               controller: passwordController,
               obscureText: true,
@@ -122,7 +134,6 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Role Dropdown
             DropdownButtonFormField<String>(
               value: role,
               decoration: const InputDecoration(
@@ -134,50 +145,38 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
                 DropdownMenuItem(
                     value: "super_admin", child: Text("Super Admin")),
               ],
-              onChanged: (val) {
-                setState(() {
-                  role = val!;
-                });
-              },
+              onChanged: (val) => setState(() => role = val!),
             ),
+
             const SizedBox(height: 20),
 
-            // Permissions title
             const Align(
               alignment: Alignment.centerLeft,
-              child: Text(
-                "Permissions",
-                style: TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 16),
-              ),
+              child: Text("Permissions",
+                  style: TextStyle(fontWeight: FontWeight.bold)),
             ),
-            const SizedBox(height: 10),
 
-            // Permissions
             CheckboxListTile(
               title: const Text("Create"),
               value: create,
-              onChanged: (val) => setState(() => create = val!),
+              onChanged: (v) => setState(() => create = v!),
             ),
             CheckboxListTile(
               title: const Text("Read"),
               value: read,
-              onChanged: (val) => setState(() => read = val!),
+              onChanged: (v) => setState(() => read = v!),
             ),
             CheckboxListTile(
               title: const Text("Update"),
               value: update,
-              onChanged: (val) => setState(() => update = val!),
+              onChanged: (v) => setState(() => update = v!),
             ),
             CheckboxListTile(
               title: const Text("Delete"),
               value: delete,
-              onChanged: (val) => setState(() => delete = val!),
+              onChanged: (v) => setState(() => delete = v!),
             ),
 
-            const SizedBox(height: 20),
-
-            // Button
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -187,6 +186,96 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
                     : const Text("Create User"),
               ),
             ),
+
+            const SizedBox(height: 30),
+
+            // 🔹 DELETE LOGS
+            ElevatedButton(
+              onPressed: () async {
+                await ItemService().deleteLogsLastNDays(7);
+              },
+              child: const Text("Delete Logs (7 days)"),
+            ),
+
+            const SizedBox(height: 30),
+
+
+            
+
+
+
+            // 🔥 UNLOCKED ITEMS
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                "Unlocked Items",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+
+            StreamBuilder(
+  stream: FirebaseFirestore.instance
+      .collection("Items")
+      .where("edit_unlocked", isEqualTo: true)
+      .snapshots(),
+  builder: (context, snapshot) {
+    if (!snapshot.hasData) {
+      return const CircularProgressIndicator();
+    }
+
+    var docs = snapshot.data!.docs;
+
+
+    if (docs.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: const Text("No unlocked items"),
+      );
+    }
+
+    return Column(
+      children: docs.map((doc) {
+        var d = doc.data();
+
+        return Card(
+          child: ListTile(
+            title: Text(d['Item_Name'] ?? ""),
+            subtitle: Text("Code: ${d['Item_Code']}"),
+
+            // 🟢 GREEN ICON
+            leading: const Icon(Icons.lock_open, color: Colors.green),
+
+            // 🔴 LOCK AGAIN BUTTON
+            trailing: IconButton(
+              icon: const Icon(Icons.lock, color: Colors.red),
+              onPressed: () async {
+                await lockItem(doc.id);
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Edit Locked")),
+                );
+              },
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  },
+),
+
+            ElevatedButton(
+  onPressed: () {
+    Navigator.push(
+  context,
+  MaterialPageRoute(
+    builder: (_) => const GroupSubgroupItemsView(
+      isSuperAdmin: true, // 🔥 KEY LINE
+    ),
+  ),
+);
+  },
+  child: const Text("Manage Item Permissions"),
+),
           ],
         ),
       ),

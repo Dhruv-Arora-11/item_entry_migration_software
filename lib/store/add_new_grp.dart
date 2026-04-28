@@ -38,12 +38,30 @@ class _AddNewGroupState extends State<AddNewGroup> {
     return 'Unknown IP';
   }
 
+  Future<int> getNextGroupNumber() async {
+    var ref =
+        FirebaseFirestore.instance.collection("counters").doc("group_counter");
+
+    return FirebaseFirestore.instance.runTransaction((tx) async {
+      var snap = await tx.get(ref);
+
+      int current = snap.exists ? snap['value'] : 0;
+      int next = current + 1;
+
+      tx.set(ref, {"value": next});
+
+      return next;
+    });
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
     try {
       String groupName = _groupNameController.text.trim();
       String subgroup = _shortdescController.text.trim();
+      int groupNo = await getNextGroupNumber();
+
       var systemIP = await getSystemIP();
 
       var name = await FirebaseFirestore.instance
@@ -54,13 +72,13 @@ class _AddNewGroupState extends State<AddNewGroup> {
           .collection("groups")
           .where("name", isEqualTo: subgroup)
           .get();
-      
+
       if (name.docs.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Group already exists")),
         );
         return;
-      }else if(description.docs.isNotEmpty){
+      } else if (description.docs.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("short description already exists")),
         );
@@ -74,7 +92,8 @@ class _AddNewGroupState extends State<AddNewGroup> {
         'users_allowed': [],
         'systemIP': systemIP,
         'datetime': FieldValue.serverTimestamp(),
-        'subgroups': []
+        'subgroups': [],
+        "group_no": groupNo,
       };
 
       await FirebaseFirestore.instance.collection('groups').add(groupData);
@@ -107,7 +126,6 @@ class _AddNewGroupState extends State<AddNewGroup> {
       }
     }
   }
-
 
   @override
   Widget build(BuildContext context) {

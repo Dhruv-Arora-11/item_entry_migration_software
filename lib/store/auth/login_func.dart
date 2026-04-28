@@ -1,7 +1,7 @@
 import 'dart:js_interop';
 
 import 'package:app/HomeScreen.dart';
-import 'package:app/store/super_admin.dart';
+import 'package:app/super_admin/super_admin.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:app/core/global_user.dart';
@@ -52,11 +52,13 @@ class _LoginScreenState extends State<LoginScreen> {
         currentUser = query.docs.first.data();
 
         if (currentUser?['role'] == "super_admin") {
+          FocusScope.of(context).unfocus();
           Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const SuperAdminScreen()),
           );
         } else {
+          FocusScope.of(context).unfocus();
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
