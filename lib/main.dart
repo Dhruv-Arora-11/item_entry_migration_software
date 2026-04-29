@@ -1,8 +1,4 @@
-import 'package:app/HomeScreen.dart';
-import 'package:app/store/add_item_inGrp.dart';
 import 'package:app/store/auth/login_func.dart';
-import 'package:app/store/viewing_item.dart';
-
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'firebase_options.dart';
