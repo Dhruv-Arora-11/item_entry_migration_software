@@ -1,6 +1,6 @@
+import 'package:app/store/Item_related_services.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:http/http.dart' as http;
 
 class AddNewGroup extends StatefulWidget {
   const AddNewGroup({super.key});
@@ -17,6 +17,9 @@ class _AddNewGroupState extends State<AddNewGroup> {
 
   bool _isLoading = false;
 
+  String systemIP = "";
+  final service = ItemService();
+
   @override
   void dispose() {
     _groupNameController.dispose();
@@ -24,17 +27,6 @@ class _AddNewGroupState extends State<AddNewGroup> {
     super.dispose();
   }
 
-  Future<String> getSystemIP() async {
-    try {
-      final response = await http.get(Uri.parse('https://api.ipify.org'));
-      if (response.statusCode == 200) {
-        return response.body;
-      }
-    } catch (e) {
-      debugPrint("IP Error: $e");
-    }
-    return 'Unknown IP';
-  }
 
   Future<int> getNextGroupNumber() async {
     var ref =
@@ -55,38 +47,56 @@ class _AddNewGroupState extends State<AddNewGroup> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
+    setState(() => _isLoading = true);
+
     try {
       String groupName = _groupNameController.text.trim();
-      String subgroup = _shortdescController.text.trim();
+      String shortDesc = _shortdescController.text.trim();
+
       int groupNo = await getNextGroupNumber();
+      var systemIP = await service.getSystemIP();
 
-      var systemIP = await getSystemIP();
+      // 🔥 CASE-INSENSITIVE VALUES
+      String groupNameLower = groupName.toLowerCase();
+      String shortDescLower = shortDesc.toLowerCase();
 
-      var name = await FirebaseFirestore.instance
+      // 🔥 FETCH ALL GROUPS
+      var snapshot = await FirebaseFirestore.instance
           .collection("groups")
-          .where("name", isEqualTo: groupName)
-          .get();
-      var description = await FirebaseFirestore.instance
-          .collection("groups")
-          .where("name", isEqualTo: subgroup)
           .get();
 
-      if (name.docs.isNotEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Group already exists")),
-        );
-        return;
-      } else if (description.docs.isNotEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("short description already exists")),
-        );
-        return;
+      // 🔥 CHECK DUPLICATES
+      for (var doc in snapshot.docs) {
+        var data = doc.data();
+
+        String existingName =
+            (data['name'] ?? "").toString().toLowerCase();
+
+        String existingShort =
+            (data['short_des'] ?? "").toString().toLowerCase();
+
+        if (existingName == groupNameLower) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Group already exists")),
+          );
+          setState(() => _isLoading = false);
+          return;
+        }
+
+        if (existingShort == shortDescLower) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Short description already exists")),
+          );
+          setState(() => _isLoading = false);
+          return;
+        }
       }
 
+      // ✅ SAVE DATA
       Map<String, dynamic> groupData = {
         'items': [],
-        'name': _groupNameController.text.trim(),
-        'short_des': _shortdescController.text.trim(),
+        'name': groupName,
+        'short_des': shortDesc,
         'users_allowed': [],
         'systemIP': systemIP,
         'datetime': FieldValue.serverTimestamp(),
@@ -111,16 +121,14 @@ class _AddNewGroupState extends State<AddNewGroup> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('एरर: ${e.toString()}'),
+            content: Text('Error: ${e.toString()}'),
             backgroundColor: Colors.red,
           ),
         );
       }
     } finally {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        setState(() => _isLoading = false);
       }
     }
   }
@@ -139,62 +147,34 @@ class _AddNewGroupState extends State<AddNewGroup> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Group Name
               TextFormField(
                 controller: _groupNameController,
                 decoration: const InputDecoration(
-                  labelText: 'Group Name (Group_Name)',
+                  labelText: 'Group Name',
                   border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.description),
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Enter group name';
-                  }
-                  return null;
-                },
+                validator: (value) =>
+                    value == null || value.isEmpty ? 'Enter group name' : null,
               ),
               const SizedBox(height: 16),
 
-              // Short Description
               TextFormField(
                 controller: _shortdescController,
                 maxLength: 4,
                 decoration: const InputDecoration(
-                  labelText: 'Short Description (Group_SDesc) - Max 4 Chars',
+                  labelText: 'Short Description (Max 4)',
                   border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.short_text),
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Enter short description';
-                  }
-                  return null;
-                },
+                validator: (value) =>
+                    value == null || value.isEmpty ? 'Enter short desc' : null,
               ),
               const SizedBox(height: 32),
 
-              // Button
               ElevatedButton(
-                onPressed: _isLoading
-                    ? null
-                    : () {
-                        if (_shortdescController.text.trim().isEmpty &&
-                            _groupNameController.text.trim().isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                                content: Text(
-                                    "Error: Enter both Group name and Sub Group name")),
-                          );
-                        } else {
-                          _submit();
-                        }
-                      },
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  textStyle: const TextStyle(fontSize: 18),
-                ),
-                child: const Text('Create Group'),
+                onPressed: _isLoading ? null : _submit,
+                child: _isLoading
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text('Create Group'),
               ),
             ],
           ),

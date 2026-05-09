@@ -1,6 +1,6 @@
-import 'dart:js_interop';
-
-import 'package:app/HomeScreen.dart';
+import 'package:app/Electrical/homeScreen.dart';
+import 'package:app/HR/hr_dashboard.dart';
+import 'package:app/store/Store_home_screen.dart';
 import 'package:app/super_admin/super_admin.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -51,19 +51,30 @@ class _LoginScreenState extends State<LoginScreen> {
         );
         currentUser = query.docs.first.data();
 
-        if (currentUser?['role'] == "super_admin") {
-          FocusScope.of(context).unfocus();
-          Navigator.push(
+        String role = currentUser?['role'] ?? "user";
+
+        if (role == "HR") {
+          Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (_) => const SuperAdminScreen()),
+            MaterialPageRoute(builder: (_) => const HRDashboard()),
           );
-        } else {
-          FocusScope.of(context).unfocus();
+        } else if (role == "user") {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
-              builder: (_) => HomeScreen(current_user: currentUser),
-            ),
+                builder: (_) => StoreDashboard(
+                      current_user: currentUser,
+                    )),
+          );
+        } else if (role == "Electrical") {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => Electrical()),
+          );
+        } else if (role == "admin" || role == "super_admin") {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const SuperAdminScreen()),
           );
         }
       }

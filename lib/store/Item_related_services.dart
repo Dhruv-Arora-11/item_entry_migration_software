@@ -1,4 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 class ItemService {
   final _db = FirebaseFirestore.instance;
@@ -11,17 +13,32 @@ class ItemService {
 
   if (createdAt == null) return false;
 
-  if (DateTime.now().difference(createdAt).inHours < 48) {
+  if (DateTime.now().difference(createdAt).inDays < 15) {
     return true;
   }
 
   return unlocked;
 }
 
+
+  Future<String> getSystemIP() async {
+    try {
+      final response = await http.get(Uri.parse('https://api.ipify.org'));
+      if (response.statusCode == 200) {
+        return response.body;
+      }
+    } catch (e) {
+      debugPrint("IP Error: $e");
+    }
+    return 'Unknown IP';
+  }
+
+
   Future<void> updateItem({
     required String docId,
     required Map<String, dynamic> oldData,
     required Map<String, dynamic> newData,
+    required String userName,
   }) async {
     Map<String, dynamic> changes = {};
 
@@ -41,7 +58,7 @@ class ItemService {
     await _db.collection("item_logs").add({
       "item_id": docId,
       "item_code": oldData['Item_Code'],
-      "edited_by": oldData['User_Name'] ?? "unknown",
+      "edited_by": userName,
       "edited_at": FieldValue.serverTimestamp(),
       "changes": changes,
     });

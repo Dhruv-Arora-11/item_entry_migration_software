@@ -1,7 +1,9 @@
 import 'package:app/core/global_user.dart';
+import 'package:app/store/Item_related_services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+
+
 
 class add_item extends StatefulWidget {
   const add_item({super.key});
@@ -14,6 +16,8 @@ class _add_itemState extends State<add_item> {
   String? selectedGroup;
   String? selectedSubgroup;
   String? selectedUnit;
+  
+  final service = ItemService();
 
   final TextEditingController itemCodeController = TextEditingController();
   final TextEditingController itemNameController = TextEditingController();
@@ -47,18 +51,7 @@ class _add_itemState extends State<add_item> {
     });
   }
 
-  Future<String> getSystemIP() async {
-    try {
-      final response = await http.get(Uri.parse('https://api.ipify.org'));
-      if (response.statusCode == 200) {
-        return response.body;
-      }
-    } catch (e) {
-      debugPrint("IP Error: $e");
-    }
-    return 'Unknown IP';
-  }
-
+  
   String get generatedItemCode {
     if (selectedGroup == null || selectedSubgroup == null) {
       return "";
@@ -124,7 +117,7 @@ class _add_itemState extends State<add_item> {
     }
 
     try {
-      String systemIP = await getSystemIP();
+      String systemIP = await service.getSystemIP();
       String userName = currentUser?['username'] ?? "unknown";
 
       var query = await FirebaseFirestore.instance
@@ -142,7 +135,22 @@ class _add_itemState extends State<add_item> {
       int groupNo = groupData['group_no'] ?? 0;
 
       int subgroupNo = subgroupNumbers["$selectedGroup-$selectedSubgroup"] ?? 0;
+
+      // 🔥 CHECK DUPLICATE
+var duplicateCheck = await FirebaseFirestore.instance
+    .collection("Items")
+    .where("Item_Name", isEqualTo: itemNameController.text.trim().toLowerCase())
+    .where("Group_Name", isEqualTo: selectedGroup)
+    .where("SubGroup_Name", isEqualTo: selectedSubgroup)
+    .get();
+
+if (duplicateCheck.docs.isNotEmpty) {
+  _showError("Item already exists in this subgroup!");
+  return;
+}
       int itemNo = await getNextItemNumber(doc.id);
+
+      
 
       String itemCode = "$groupNo-$subgroupNo-$itemNo";
 
@@ -159,9 +167,9 @@ class _add_itemState extends State<add_item> {
             ? "None"
             : colorController.text.trim(),
         "Design_No": designController.text.trim(),
-        "Opening_Stock": int.tryParse(stockController.text) ?? 0,
-        "Amount": int.tryParse(amountController.text) ?? 0,
-        "Size": int.tryParse(sizeController.text) ?? 0,
+        "Opening_Stock": double.tryParse(stockController.text) ?? 0,
+        "Amount": double.tryParse(amountController.text) ?? 0,
+        "Size": double.tryParse(sizeController.text) ?? 0,
         "Unit": selectedUnit ?? "",
         "Group_ID": selectedGroup,
         "Group_Name": groupName,
@@ -177,7 +185,9 @@ class _add_itemState extends State<add_item> {
         "System_IP": systemIP,
         "Create_at": FieldValue.serverTimestamp(),
         "Status": true,
-        "Min_Stock": int.tryParse(minStockController.text) ?? 0
+        "Min_Stock": double.tryParse(
+  minStockController.text.trim().replaceAll(',', '.')
+) ?? 0,
       });
 
       _showSuccess("Item Added Successfully!");
@@ -412,20 +422,18 @@ class _add_itemState extends State<add_item> {
                                 children: [
                                   Expanded(
                                     child: TextField(
-                                      controller: stockController,
-                                      decoration: const InputDecoration(
-                                        labelText: "Opening Stock",
-                                      ),
-                                    ),
+  controller: stockController,
+  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+  decoration: const InputDecoration(labelText: "Opening Stock"),
+),
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: TextField(
-                                      controller: amountController,
-                                      decoration: const InputDecoration(
-                                        labelText: "Amount",
-                                      ),
-                                    ),
+  controller: amountController,
+  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+  decoration: const InputDecoration(labelText: "Amount"),
+),
                                   ),
                                 ],
                               ),
@@ -436,11 +444,10 @@ class _add_itemState extends State<add_item> {
                                 children: [
                                   Expanded(
                                     child: TextField(
-                                      controller: sizeController,
-                                      decoration: const InputDecoration(
-                                        labelText: "Size",
-                                      ),
-                                    ),
+  controller: sizeController,
+  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+  decoration: const InputDecoration(labelText: "Size"),
+),
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
@@ -450,12 +457,14 @@ class _add_itemState extends State<add_item> {
                                         labelText: "Unit",
                                       ),
                                       items: [
-                                        "No",
+                                        "Nos",
                                         "Square Foot",
                                         "Square Meter",
                                         "Meter",
                                         "KG",
-                                        "Foot"
+                                        "Foot",
+                                        "Packet",
+                                        "Ltr"
                                       ]
                                           .map((e) => DropdownMenuItem(
                                               value: e, child: Text(e)))
@@ -473,11 +482,10 @@ class _add_itemState extends State<add_item> {
                               const SizedBox(height: 28),
 
                               TextField(
-                                controller: minStockController,
-                                decoration: const InputDecoration(
-                                  labelText: "Minimum Stock",
-                                ),
-                              ),
+  controller: minStockController,
+  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+  decoration: const InputDecoration(labelText: "Minimum Stock"),
+),
 
                               const SizedBox(height: 28),
 

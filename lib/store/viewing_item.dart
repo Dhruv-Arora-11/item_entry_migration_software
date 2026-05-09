@@ -11,12 +11,10 @@ class GroupSubgroupItemsView extends StatefulWidget {
   });
 
   @override
-  State<GroupSubgroupItemsView> createState() =>
-      _GroupSubgroupItemsViewState();
+  State<GroupSubgroupItemsView> createState() => _GroupSubgroupItemsViewState();
 }
 
-class _GroupSubgroupItemsViewState
-    extends State<GroupSubgroupItemsView> {
+class _GroupSubgroupItemsViewState extends State<GroupSubgroupItemsView> {
   String? selectedGroup;
   String? selectedSubgroup;
 
@@ -42,27 +40,23 @@ class _GroupSubgroupItemsViewState
       appBar: AppBar(title: const Text("Items Viewer")),
       body: Row(
         children: [
-
           // 🔹 LEFT PANEL (Groups + Subgroups)
           Container(
             width: 300,
             color: Colors.grey.shade100,
             child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection("groups")
-                  .snapshots(),
+              stream:
+                  FirebaseFirestore.instance.collection("groups").snapshots(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
-                  return const Center(
-                      child: CircularProgressIndicator());
+                  return const Center(child: CircularProgressIndicator());
                 }
 
                 var docs = snapshot.data!.docs;
 
                 return ListView(
                   children: docs.map((doc) {
-                    var data =
-                        doc.data() as Map<String, dynamic>;
+                    var data = doc.data() as Map<String, dynamic>;
 
                     List subgroups = data['subgroups'] ?? [];
 
@@ -70,13 +64,11 @@ class _GroupSubgroupItemsViewState
                       title: Text(data['name'] ?? ""),
                       subtitle: Text(data['short_des'] ?? ""),
                       children: subgroups.map<Widget>((s) {
-                        String subgroupName =
-                            (s is Map<String, dynamic>)
-                                ? s['name'] ?? ""
-                                : s.toString();
+                        String subgroupName = (s is Map<String, dynamic>)
+                            ? s['name'] ?? ""
+                            : s.toString();
 
-                        bool isSelected =
-                            selectedSubgroup == subgroupName;
+                        bool isSelected = selectedSubgroup == subgroupName;
 
                         return ListTile(
                           title: Text(
@@ -85,22 +77,17 @@ class _GroupSubgroupItemsViewState
                               fontWeight: isSelected
                                   ? FontWeight.bold
                                   : FontWeight.normal,
-                              color: isSelected
-                                  ? Colors.blue
-                                  : Colors.black,
+                              color: isSelected ? Colors.blue : Colors.black,
                             ),
                           ),
                           leading: Icon(
                             isSelected
                                 ? Icons.radio_button_checked
                                 : Icons.radio_button_off,
-                            color: isSelected
-                                ? Colors.blue
-                                : Colors.grey,
+                            color: isSelected ? Colors.blue : Colors.grey,
                           ),
                           selected: isSelected,
-                          selectedTileColor:
-                              Colors.blue.withOpacity(0.08),
+                          selectedTileColor: Colors.blue.withOpacity(0.08),
                           onTap: () {
                             setState(() {
                               selectedGroup = data['name'];
@@ -118,54 +105,55 @@ class _GroupSubgroupItemsViewState
 
           // 🔹 RIGHT PANEL (Items)
           Expanded(
-            child: selectedGroup == null ||
-                    selectedSubgroup == null
+            child: selectedGroup == null || selectedSubgroup == null
                 ? const Center(child: Text("Select a subgroup"))
                 : StreamBuilder<QuerySnapshot>(
                     stream: FirebaseFirestore.instance
                         .collection("Items")
-                        .where("Group_Name",
-                            isEqualTo: selectedGroup)
-                        .where("SubGroup_Name",
-                            isEqualTo: selectedSubgroup)
+                        .where("Group_Name", isEqualTo: selectedGroup)
+                        .where("SubGroup_Name", isEqualTo: selectedSubgroup)
                         .snapshots(),
                     builder: (context, snapshot) {
-
-                      if (snapshot.connectionState ==
-                          ConnectionState.waiting) {
-                        return const Center(
-                            child: CircularProgressIndicator());
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
                       }
 
-                      if (!snapshot.hasData ||
-                          snapshot.data!.docs.isEmpty) {
-                        return const Center(
-                            child: Text("No items found"));
+                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                        return const Center(child: Text("No items found"));
                       }
 
                       var docs = snapshot.data!.docs;
 
                       // 🔥 SORT BY ITEM NAME
                       docs.sort((a, b) {
-                        var nameA = (a['Item_Name'] ?? "")
-                            .toString()
-                            .toLowerCase();
-                        var nameB = (b['Item_Name'] ?? "")
-                            .toString()
-                            .toLowerCase();
+                        var nameA =
+                            (a['Item_Name'] ?? "").toString().toLowerCase();
+                        var nameB =
+                            (b['Item_Name'] ?? "").toString().toLowerCase();
                         return nameA.compareTo(nameB);
                       });
 
-                      // 🔥 TOTAL AMOUNT
                       double totalAmount = 0;
+                      double totalStocks = 0;
+
                       for (var doc in docs) {
-                        var amt = doc['Amount'];
+                        var data = doc.data() as Map<String, dynamic>;
+
+                        var amt = data['Amount'];
+                        var stock = data['Opening_Stock'];
+
+                        // 🔹 AMOUNT
                         if (amt != null) {
-                          totalAmount += (amt is int)
+                          totalAmount += (amt is num)
                               ? amt.toDouble()
-                              : double.tryParse(
-                                      amt.toString()) ??
-                                  0;
+                              : double.tryParse(amt.toString()) ?? 0;
+                        }
+
+                        // 🔹 STOCK
+                        if (stock != null) {
+                          totalStocks += (stock is num)
+                              ? stock.toDouble()
+                              : double.tryParse(stock.toString()) ?? 0;
                         }
                       }
 
@@ -173,41 +161,101 @@ class _GroupSubgroupItemsViewState
                         alignment: Alignment.topLeft,
                         child: SingleChildScrollView(
                           child: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-
                               // 🔥 TOTAL DISPLAY
                               Padding(
-                                padding:
-                                    const EdgeInsets.all(10),
-                                child: Text(
-                                  "Total Amount: ₹ ${totalAmount.toStringAsFixed(2)}",
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.green,
-                                  ),
+                                padding: const EdgeInsets.all(12),
+                                child: Row(
+                                  children: [
+                                    // 🔹 TOTAL AMOUNT CARD
+                                    Expanded(
+                                      child: Container(
+                                        padding: const EdgeInsets.all(16),
+                                        decoration: BoxDecoration(
+                                          color: Colors.green.shade50,
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          border: Border.all(
+                                              color: Colors.green.shade200),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            const Text(
+                                              "Total Amount",
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                color: Colors.black54,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 6),
+                                            Text(
+                                              "₹ ${totalAmount.toStringAsFixed(2)}",
+                                              style: const TextStyle(
+                                                fontSize: 20,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.green,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+
+                                    const SizedBox(width: 12),
+
+                                    // 🔹 TOTAL COUNT CARD
+                                    Expanded(
+                                      child: Container(
+                                        padding: const EdgeInsets.all(16),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue.shade50,
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          border: Border.all(
+                                              color: Colors.blue.shade200),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            const Text(
+                                              "Total Stock",
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                color: Colors.black54,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 6),
+                                            Text(
+                                              "$totalStocks",
+                                              style: const TextStyle(
+                                                fontSize: 20,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.blue,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-
                               // 🔽 TABLE
                               SingleChildScrollView(
-                                scrollDirection:
-                                    Axis.horizontal,
+                                scrollDirection: Axis.horizontal,
                                 child: ConstrainedBox(
                                   constraints: BoxConstraints(
                                     minWidth:
-                                        MediaQuery.of(context)
-                                                .size
-                                                .width -
-                                            300,
+                                        MediaQuery.of(context).size.width - 300,
                                   ),
                                   child: DataTable(
                                     columnSpacing: 40,
-                                    headingRowColor:
-                                        MaterialStateProperty.all(
-                                            Colors.blue.shade50),
+                                    headingRowColor: MaterialStateProperty.all(
+                                        Colors.blue.shade50),
                                     columns: [
                                       const DataColumn(
                                           label: Text("Item Code")),
@@ -215,63 +263,52 @@ class _GroupSubgroupItemsViewState
                                           label: Text("Item Name")),
                                       const DataColumn(
                                           label: Text("Design No")),
-                                      const DataColumn(
-                                          label: Text("Stock")),
-                                      const DataColumn(
-                                          label: Text("Min")),
-                                      const DataColumn(
-                                          label: Text("Size")),
-                                      const DataColumn(
-                                          label: Text("Unit")),
-                                      const DataColumn(
-                                          label: Text("Color")),
-                                      const DataColumn(
-                                          label: Text("Edit")),
+                                      const DataColumn(label: Text("Stock")),
+                                      const DataColumn(label: Text("Min")),
+                                      const DataColumn(label: Text("Size")),
+                                      const DataColumn(label: Text("Unit")),
+                                      const DataColumn(label: Text("Amount")),
+                                      const DataColumn(label: Text("Edit")),
                                       if (widget.isSuperAdmin)
-                                        const DataColumn(
-                                            label: Text("Unlock")),
+                                        const DataColumn(label: Text("Unlock")),
                                     ],
                                     rows: docs.map((doc) {
-                                      var d = doc.data()
-                                          as Map<String, dynamic>;
+                                      var d =
+                                          doc.data() as Map<String, dynamic>;
 
                                       return DataRow(
                                         onSelectChanged: (_) {
-                                          FocusScope.of(context)
-                                              .unfocus();
+                                          FocusScope.of(context).unfocus();
                                           Navigator.push(
                                             context,
                                             MaterialPageRoute(
-                                              builder: (_) =>
-                                                  ItemLogsScreen(
+                                              builder: (_) => ItemLogsScreen(
                                                 itemId: doc.id,
                                               ),
                                             ),
                                           );
                                         },
                                         cells: [
+                                          DataCell(Text(d['Item_Code'] ?? "")),
+                                          DataCell(Text(d['Item_Name'] ?? "")),
+                                          DataCell(Text(d['Design_No'] ?? "")),
                                           DataCell(Text(
-                                              d['Item_Code'] ?? "")),
+                                              d['Opening_Stock']?.toString() ??
+                                                  "0")),
                                           DataCell(Text(
-                                              d['Item_Name'] ?? "")),
-                                          DataCell(Text(
-                                              d['Design_No'] ?? "")),
-                                          DataCell(Text(
-                                              d['Opening_Stock']?.toString() ?? "0")),
-                                          DataCell(Text(
-                                              d['Minimum_Stock']?.toString() ?? "0")),
+                                              d['Min_Stock']?.toString() ??
+                                                  "0")),
                                           DataCell(Text(
                                               d['Size']?.toString() ?? "")),
                                           DataCell(Text(
                                               d['Unit']?.toString() ?? "")),
                                           DataCell(Text(
-                                              d['Color']?.toString() ?? "")),
+                                              "₹ ${d['Amount']?.toString() ?? "0"}")),
 
                                           // EDIT
                                           DataCell(
                                             IconButton(
-                                              icon: const Icon(
-                                                  Icons.edit,
+                                              icon: const Icon(Icons.edit,
                                                   color: Colors.blue),
                                               onPressed: () {
                                                 FocusScope.of(context)
@@ -294,8 +331,7 @@ class _GroupSubgroupItemsViewState
                                           if (widget.isSuperAdmin)
                                             DataCell(
                                               Builder(
-                                                builder:
-                                                    (context) {
+                                                builder: (context) {
                                                   bool isUnlocked =
                                                       d['edit_unlocked'] ==
                                                           true;
@@ -303,20 +339,14 @@ class _GroupSubgroupItemsViewState
                                                   return IconButton(
                                                     icon: Icon(
                                                       isUnlocked
-                                                          ? Icons
-                                                              .lock_open
-                                                          : Icons
-                                                              .lock,
+                                                          ? Icons.lock_open
+                                                          : Icons.lock,
                                                       color: isUnlocked
-                                                          ? Colors
-                                                              .green
-                                                          : Colors
-                                                              .red,
+                                                          ? Colors.green
+                                                          : Colors.red,
                                                     ),
-                                                    onPressed: () =>
-                                                        toggleEdit(
-                                                            doc.id,
-                                                            isUnlocked),
+                                                    onPressed: () => toggleEdit(
+                                                        doc.id, isUnlocked),
                                                   );
                                                 },
                                               ),

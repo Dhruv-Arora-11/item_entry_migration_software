@@ -1,3 +1,4 @@
+import 'package:app/core/global_user.dart';
 import 'package:app/store/Item_related_services.dart';
 import 'package:flutter/material.dart';
 
@@ -29,10 +30,20 @@ class _EditItemScreenState extends State<EditItemScreen> {
   late TextEditingController amount;
 
   bool isAdmin = false;
+  String ip_address = "";
+
+
+  void initIP() async{
+    ip_address = await service.getSystemIP();
+  }
+
+
 
   @override
   void initState() {
     super.initState();
+
+    initIP();
 
     itemCode =
         TextEditingController(text: widget.item['Item_Code'] ?? "");
@@ -66,18 +77,20 @@ class _EditItemScreenState extends State<EditItemScreen> {
       "Item_Code": itemCode.text,
       "Item_Name": name.text,
       "Design_No": design.text,
-      "Size": size.text,
+      "Size": double.tryParse(size.text) ?? 0,
       "Unit": unit.text,
       "Color": color.text,
-      "Opening_Stock": int.tryParse(openingStock.text) ?? 0,
-      "Minimum_Stock": int.tryParse(minimumStock.text) ?? 0,
-      "Amount": int.tryParse(amount.text) ?? 0,
+      "Opening_Stock": double.tryParse(openingStock.text) ?? 0,
+      "Minimum_Stock": double.tryParse(minimumStock.text) ?? 0,
+      "Amount": double.tryParse(amount.text) ?? 0,
+      "ip_address":ip_address,
     };
 
     await service.updateItem(
       docId: widget.docId,
       oldData: widget.item,
       newData: newData,
+      userName: currentUser?['username'] ?? "unknown",
     );
 
     Navigator.pop(context);
@@ -139,15 +152,22 @@ class _EditItemScreenState extends State<EditItemScreen> {
             const SizedBox(height: 20),
 
             TextField(
-              controller: size,
-              decoration: const InputDecoration(labelText: "Size"),
-            ),
+  controller: size,
+  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+  decoration: const InputDecoration(labelText: "Size"),
+),
             const SizedBox(height: 20),
 
-            TextField(
-              controller: unit,
-              decoration: const InputDecoration(labelText: "Unit"),
-            ),
+            DropdownButtonFormField<String>(
+  value: unit.text.isEmpty ? null : unit.text,
+  decoration: const InputDecoration(labelText: "Unit"),
+  items: ["Nos", "Square Foot", "Square Meter", "KG", "Meter", "Foot"]
+      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+      .toList(),
+  onChanged: (val) {
+    unit.text = val ?? "";
+  },
+),
             const SizedBox(height: 20),
 
             TextField(
@@ -159,21 +179,21 @@ class _EditItemScreenState extends State<EditItemScreen> {
             // ✅ CORRECT STOCK FIELDS
             TextField(
               controller: openingStock,
-              keyboardType: TextInputType.number,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(labelText: "Opening Stock"),
             ),
             const SizedBox(height: 20),
 
             TextField(
               controller: minimumStock,
-              keyboardType: TextInputType.number,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(labelText: "Minimum Stock"),
             ),
             const SizedBox(height: 20),
 
             TextField(
               controller: amount,
-              keyboardType: TextInputType.number,
+              keyboardType:const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(labelText: "Amount"),
             ),
             const SizedBox(height: 20),

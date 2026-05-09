@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-class AddToExistingGroup extends StatefulWidget {
-  const AddToExistingGroup({super.key});
+class addingSubgroup extends StatefulWidget {
+  const addingSubgroup({super.key});
 
   @override
-  State<AddToExistingGroup> createState() => _AddToExistingGroupState();
+  State<addingSubgroup> createState() => _addingSubgroupState();
 }
 
-class _AddToExistingGroupState extends State<AddToExistingGroup> {
+class _addingSubgroupState extends State<addingSubgroup> {
   String? selectedGroup;
 
   final TextEditingController _subgroupController = TextEditingController();
@@ -40,113 +40,124 @@ class _AddToExistingGroupState extends State<AddToExistingGroup> {
     });
   }
 
-Future<void> fetchGroups() async {
-  var snapshot =
-      await FirebaseFirestore.instance.collection("groups").get();
+  Future<void> fetchGroups() async {
+    var snapshot =
+        await FirebaseFirestore.instance.collection("groups").get();
 
-  List<String> temp = []; // all short descriptions
+    List<String> temp = [];
 
-  for (var doc in snapshot.docs) {
-    var data = doc.data();
+    for (var doc in snapshot.docs) {
+      var data = doc.data();
 
-    String shortDesc = data['short_des'] ?? "";
+      String shortDesc = data['short_des'] ?? "";
 
-    if (shortDesc.isNotEmpty) {
-      temp.add(shortDesc);
-    }
-  }
-
-  setState(() {
-    groups = temp.toSet().toList(); // remove duplicates
-    selectedGroup = null;
-    isLoading = false;
-  });
-}
-Future<void> updateGroup() async {
-  if (selectedGroup == null) {
-    _show("Please select a group");
-    return;
-  }
-
-  String subgroup = _subgroupController.text.trim();
-  String user = _userController.text.trim();
-
-  if (subgroup.isEmpty && user.isEmpty) {
-    _show("Enter subgroup or user ID");
-    return;
-  }
-
-  try {
-    var query = await FirebaseFirestore.instance
-        .collection("groups")
-        .where("short_des", isEqualTo: selectedGroup)
-        .get();
-
-    if (query.docs.isEmpty) return;
-
-    var doc = query.docs.first;
-    var docData = doc.data();
-
-    Map<String, dynamic> data = {};
-
-    // 🔹 SUBGROUP FIX (IMPORTANT)
-    if (subgroup.isNotEmpty) {
-      var existingSubgroups = List.from(docData['subgroups'] ?? []);
-
-      bool exists = false;
-
-      for (var e in existingSubgroups) {
-        if (e is Map && e['name'] == subgroup) {
-          exists = true;
-        } else if (e is String && e == subgroup) {
-          exists = true;
-        }
+      if (shortDesc.isNotEmpty) {
+        temp.add(shortDesc);
       }
-
-      if (exists) {
-        _show("Subgroup already exists");
-        return;
-      }
-
-      int subGroup_number = await getNextSubgroupNumber();
-
-      data["subgroups"] = FieldValue.arrayUnion([
-        {
-          "name": subgroup,
-          "subgroup_no": subGroup_number,
-        }
-      ]);
     }
-
-    // 🔹 USER FIX
-    if (user.isNotEmpty) {
-      var users = List.from(docData['users_allowed'] ?? []);
-
-      if (users.contains(user)) {
-        _show("User already exists");
-        return;
-      }
-
-      data["users_allowed"] = FieldValue.arrayUnion([user]);
-    }
-
-    await FirebaseFirestore.instance
-        .collection("groups")
-        .doc(doc.id)
-        .update(data);
-
-    _show("Updated successfully");
-
-    _subgroupController.clear();
-    _userController.clear();
 
     setState(() {
+      groups = temp.toSet().toList();
       selectedGroup = null;
+      isLoading = false;
     });
-  } catch (e) {
-    _show("Error: $e");
   }
-}
+
+  Future<void> updateGroup() async {
+    if (selectedGroup == null) {
+      _show("Please select a group");
+      return;
+    }
+
+    String subgroup = _subgroupController.text.trim();
+    String user = _userController.text.trim();
+
+    if (subgroup.isEmpty && user.isEmpty) {
+      _show("Enter subgroup or user ID");
+      return;
+    }
+
+    try {
+      var query = await FirebaseFirestore.instance
+          .collection("groups")
+          .where("short_des", isEqualTo: selectedGroup)
+          .get();
+
+      if (query.docs.isEmpty) return;
+
+      var doc = query.docs.first;
+      var docData = doc.data();
+
+      Map<String, dynamic> data = {};
+
+      // 🔥 SUBGROUP VALIDATION (FIXED)
+      if (subgroup.isNotEmpty) {
+        var existingSubgroups = List.from(docData['subgroups'] ?? []);
+
+        String newSub = subgroup.toLowerCase().trim();
+        bool exists = false;
+
+        for (var e in existingSubgroups) {
+          String existing = "";
+
+          if (e is Map) {
+            existing =
+                (e['name'] ?? "").toString().toLowerCase().trim();
+          } else {
+            existing = e.toString().toLowerCase().trim();
+          }
+
+          if (existing == newSub) {
+            exists = true;
+            break;
+          }
+        }
+
+        if (exists) {
+          _show("Subgroup already exists");
+          return;
+        }
+
+        int subGroupNumber = await getNextSubgroupNumber();
+
+        data["subgroups"] = FieldValue.arrayUnion([
+          {
+            "name": subgroup,
+            "subgroup_no": subGroupNumber,
+          }
+        ]);
+      }
+
+      // 🔥 USER VALIDATION
+      if (user.isNotEmpty) {
+        var users = List.from(docData['users_allowed'] ?? []);
+
+        if (users.contains(user)) {
+          _show("User already exists");
+          return;
+        }
+
+        data["users_allowed"] = FieldValue.arrayUnion([user]);
+      }
+
+      await FirebaseFirestore.instance
+          .collection("groups")
+          .doc(doc.id)
+          .update(data);
+
+      _show("Updated successfully");
+
+      _subgroupController.clear();
+      _userController.clear();
+
+      setState(() {
+        selectedGroup = null;
+      });
+    } catch (e) {
+      _show("Error: $e");
+    }
+  }
+
   void _show(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(msg)),
@@ -189,20 +200,25 @@ Future<void> updateGroup() async {
                     },
                   ),
                   const SizedBox(height: 16),
+
                   TextFormField(
                     controller: _subgroupController,
                     decoration: const InputDecoration(
                       labelText: "Subgroup",
                     ),
                   ),
+
                   const SizedBox(height: 16),
+
                   TextFormField(
                     controller: _userController,
                     decoration: const InputDecoration(
                       labelText: "User ID",
                     ),
                   ),
+
                   const SizedBox(height: 24),
+
                   ElevatedButton(
                     onPressed: updateGroup,
                     child: const Text("Update"),

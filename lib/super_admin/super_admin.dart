@@ -1,6 +1,6 @@
 import 'package:app/store/Item_related_services.dart';
 import 'package:app/store/viewing_item.dart';
-import 'package:app/super_admin/adminPermissionScreen.dart';
+import 'package:app/super_admin/RequestPannel.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -14,6 +14,9 @@ class SuperAdminScreen extends StatefulWidget {
 class _SuperAdminScreenState extends State<SuperAdminScreen> {
   final TextEditingController usernameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  final TextEditingController department_controller = TextEditingController();
+
+
 
   bool create = false;
   bool read = false;
@@ -83,27 +86,45 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
     setState(() => isLoading = false);
   }
 
-  // 🔓 GIVE PERMISSION
-  Future<void> unlockItem(String docId) async {
-    await FirebaseFirestore.instance.collection("Items").doc(docId).update({
-      "edit_unlocked": true,
-      "edit_unlocked_by": "super_admin",
-      "edit_unlocked_at": FieldValue.serverTimestamp(),
-    });
-  }
-
-  // 🔒 LOCK AGAIN
-  Future<void> lockItem(String docId) async {
-    await FirebaseFirestore.instance.collection("Items").doc(docId).update({
-      "edit_unlocked": false,
-    });
-  }
-
-  @override
-  void dispose() {
-    usernameController.dispose();
-    passwordController.dispose();
-    super.dispose();
+  // 🔥 ACTION CARD (FIXED)
+  Widget _actionCard(
+    String title,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withOpacity(0.3)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: [
+                Icon(icon, color: color, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const Icon(Icons.arrow_forward_ios, size: 14),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -111,172 +132,187 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text("Super Admin Panel")),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            // 🔹 USER CREATION
-            TextField(
-              controller: usernameController,
-              decoration: const InputDecoration(
-                labelText: "Username",
-                prefixIcon: Icon(Icons.person),
-              ),
-            ),
-            const SizedBox(height: 16),
+        padding: const EdgeInsets.all(20),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 700),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 🔷 TITLE
+                const Text(
+                  "User Management",
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
 
-            TextField(
-              controller: passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: "Password",
-                prefixIcon: Icon(Icons.lock),
-              ),
-            ),
-            const SizedBox(height: 16),
+                const SizedBox(height: 16),
 
-            DropdownButtonFormField<String>(
-              value: role,
-              decoration: const InputDecoration(
-                labelText: "Role",
-                prefixIcon: Icon(Icons.admin_panel_settings),
-              ),
-              items: const [
-                DropdownMenuItem(value: "user", child: Text("User")),
-                DropdownMenuItem(
-                    value: "super_admin", child: Text("Super Admin")),
+                // 🔷 FORM CARD
+                Card(
+                  elevation: 3,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        TextField(
+                          controller: usernameController,
+                          decoration: const InputDecoration(
+                            labelText: "Username",
+                            prefixIcon: Icon(Icons.person),
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: passwordController,
+                          obscureText: true,
+                          decoration: const InputDecoration(
+                            labelText: "Password",
+                            prefixIcon: Icon(Icons.lock),
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          value: role,
+                          decoration: const InputDecoration(
+                            labelText: "Role",
+                            border: OutlineInputBorder(),
+                          ),
+                          items:  [
+                            DropdownMenuItem(
+                                value: "user", child: Text("User")),
+                            DropdownMenuItem(
+                                value: "super_admin",
+                                child: Text("Super Admin")),
+                            DropdownMenuItem(value: "HR", child: Text("HR")),
+                            DropdownMenuItem(value: "HR", child: Text("Electrical")),
+                          ],
+                          onChanged: (val) => setState(() => role = val!),
+                        ),
+                        const SizedBox(height: 16),
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            "Permissions",
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        Wrap(
+                          spacing: 10,
+                          children: [
+                            FilterChip(
+                              label: const Text("Create"),
+                              selected: create,
+                              onSelected: (v) => setState(() => create = v),
+                            ),
+                            FilterChip(
+                              label: const Text("Read"),
+                              selected: read,
+                              onSelected: (v) => setState(() => read = v),
+                            ),
+                            FilterChip(
+                              label: const Text("Update"),
+                              selected: update,
+                              onSelected: (v) => setState(() => update = v),
+                            ),
+                            FilterChip(
+                              label: const Text("Delete"),
+                              selected: delete,
+                              onSelected: (v) => setState(() => delete = v),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: isLoading ? null : createUser,
+                            child: isLoading
+                                ? const CircularProgressIndicator(
+                                    color: Colors.white)
+                                : const Text("Create User"),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 30),
+
+                // 🔷 ACTIONS
+                const Text(
+                  "Actions",
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+
+                const SizedBox(height: 16),
+
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: 3,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    mainAxisExtent: 70,
+                  ),
+                  itemBuilder: (context, index) {
+                    final actions = [
+                      {
+                        "title": "Delete Logs",
+                        "icon": Icons.delete,
+                        "color": Colors.red,
+                        "onTap": () async {
+                          await ItemService().deleteLogsLastNDays(7);
+                        }
+                      },
+                      {
+                        "title": "Edit Item Permissions",
+                        "icon": Icons.lock_open,
+                        "color": Colors.orange,
+                        "onTap": () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const GroupSubgroupItemsView(
+                                  isSuperAdmin: true),
+                            ),
+                          );
+                        }
+                      },
+                      {
+                        "title": "Manage Requests",
+                        "icon": Icons.assignment,
+                        "color": Colors.blue,
+                        "onTap": () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const RequestPanelScreen(),
+                            ),
+                          );
+                        }
+                      },
+                    ];
+
+                    final a = actions[index];
+
+                    return _actionCard(
+                      a["title"] as String,
+                      a["icon"] as IconData,
+                      a["color"] as Color,
+                      a["onTap"] as VoidCallback,
+                    );
+                  },
+                ),
               ],
-              onChanged: (val) => setState(() => role = val!),
-            ),
-
-            const SizedBox(height: 20),
-
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text("Permissions",
-                  style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
-
-            CheckboxListTile(
-              title: const Text("Create"),
-              value: create,
-              onChanged: (v) => setState(() => create = v!),
-            ),
-            CheckboxListTile(
-              title: const Text("Read"),
-              value: read,
-              onChanged: (v) => setState(() => read = v!),
-            ),
-            CheckboxListTile(
-              title: const Text("Update"),
-              value: update,
-              onChanged: (v) => setState(() => update = v!),
-            ),
-            CheckboxListTile(
-              title: const Text("Delete"),
-              value: delete,
-              onChanged: (v) => setState(() => delete = v!),
-            ),
-
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: isLoading ? null : createUser,
-                child: isLoading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text("Create User"),
-              ),
-            ),
-
-            const SizedBox(height: 30),
-
-            // 🔹 DELETE LOGS
-            ElevatedButton(
-              onPressed: () async {
-                await ItemService().deleteLogsLastNDays(7);
-              },
-              child: const Text("Delete Logs (7 days)"),
-            ),
-
-            const SizedBox(height: 30),
-
-
-            
-
-
-
-            // 🔥 UNLOCKED ITEMS
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                "Unlocked Items",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-            ),
-
-            StreamBuilder(
-  stream: FirebaseFirestore.instance
-      .collection("Items")
-      .where("edit_unlocked", isEqualTo: true)
-      .snapshots(),
-  builder: (context, snapshot) {
-    if (!snapshot.hasData) {
-      return const CircularProgressIndicator();
-    }
-
-    var docs = snapshot.data!.docs;
-
-
-    if (docs.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: const Text("No unlocked items"),
-      );
-    }
-
-    return Column(
-      children: docs.map((doc) {
-        var d = doc.data();
-
-        return Card(
-          child: ListTile(
-            title: Text(d['Item_Name'] ?? ""),
-            subtitle: Text("Code: ${d['Item_Code']}"),
-
-            // 🟢 GREEN ICON
-            leading: const Icon(Icons.lock_open, color: Colors.green),
-
-            // 🔴 LOCK AGAIN BUTTON
-            trailing: IconButton(
-              icon: const Icon(Icons.lock, color: Colors.red),
-              onPressed: () async {
-                await lockItem(doc.id);
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Edit Locked")),
-                );
-              },
             ),
           ),
-        );
-      }).toList(),
-    );
-  },
-),
-
-            ElevatedButton(
-  onPressed: () {
-    Navigator.push(
-  context,
-  MaterialPageRoute(
-    builder: (_) => const GroupSubgroupItemsView(
-      isSuperAdmin: true, // 🔥 KEY LINE
-    ),
-  ),
-);
-  },
-  child: const Text("Manage Item Permissions"),
-),
-          ],
         ),
       ),
     );
