@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:excel/excel.dart';
-import 'dart:convert';
+// ignore: avoid_web_libraries_in_flutter
 import 'dart:html' as html;
 
 Future<void> exportGroupsToExcelWeb() async {
@@ -52,10 +52,6 @@ Future<void> exportGroupsToExcelWeb() async {
     final blob = html.Blob([bytes]);
     final url = html.Url.createObjectUrlFromBlob(blob);
 
-    final anchor = html.AnchorElement(href: url)
-      ..setAttribute("download",
-          "groups_${DateTime.now().millisecondsSinceEpoch}.xlsx")
-      ..click();
 
     html.Url.revokeObjectUrl(url);
 
