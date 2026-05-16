@@ -1,4 +1,3 @@
-import 'package:app/Electrical/homeScreen.dart';
 import 'package:app/HR/hr_dashboard.dart';
 import 'package:app/store/Store_home_screen.dart';
 import 'package:app/super_admin/super_admin.dart';
@@ -53,29 +52,35 @@ class _LoginScreenState extends State<LoginScreen> {
 
         String role = currentUser?['role'] ?? "user";
 
-        if (role == "HR") {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const HRDashboard()),
-          );
-        } else if (role == "user") {
+        String department = currentUser?['department_name'] ?? "";
+
+        if (role == "super_admin") {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
+              builder: (_) => const SuperAdminScreen(),
+            ),
+          );
+        } else {
+          if (department == "") {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
                 builder: (_) => StoreDashboard(
-                      current_user: currentUser,
-                    )),
-          );
-        } else if (role == "Electrical") {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => Electrical()),
-          );
-        } else if (role == "admin" || role == "super_admin") {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const SuperAdminScreen()),
-          );
+                  current_user: currentUser,
+                ),
+              ),
+            );
+          } else {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => DepartmentDashboard(
+                  departmentName: department,
+                ),
+              ),
+            );
+          }
         }
       }
     } catch (e) {
@@ -83,7 +88,6 @@ class _LoginScreenState extends State<LoginScreen> {
         SnackBar(content: Text("Error: $e")),
       );
     }
-
     setState(() => isLoading = false);
   }
 

@@ -2,7 +2,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 class HRRequestsScreen extends StatelessWidget {
-  const HRRequestsScreen({super.key});
+  final String departmentName;
+  
+  const HRRequestsScreen({
+    super.key,
+    required this.departmentName
+  });
 
   @override
   Widget build(BuildContext context) {

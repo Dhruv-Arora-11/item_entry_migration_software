@@ -1,7 +1,10 @@
+import 'package:app/store/Item_related_services.dart';
 import 'package:app/store/item_editing_screen.dart';
 import 'package:app/store/viewing_editing_logs.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:typed_data';
+import 'dart:html' as html;
 
 class GroupSubgroupItemsView extends StatefulWidget {
   final bool isSuperAdmin;
@@ -17,6 +20,9 @@ class GroupSubgroupItemsView extends StatefulWidget {
 class _GroupSubgroupItemsViewState extends State<GroupSubgroupItemsView> {
   String? selectedGroup;
   String? selectedSubgroup;
+  ValueNotifier<Set<String>> selectedDocIds =
+    ValueNotifier({});
+  final itemService = ItemService();
 
   Future<void> toggleEdit(String docId, bool isUnlocked) async {
     await FirebaseFirestore.instance.collection("Items").doc(docId).update({
@@ -37,7 +43,89 @@ class _GroupSubgroupItemsViewState extends State<GroupSubgroupItemsView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Items Viewer")),
+      appBar: AppBar(
+
+  title: ValueListenableBuilder(
+
+  valueListenable: selectedDocIds,
+
+  builder: (context, value, _) {
+
+    return Text(
+
+      value.isEmpty
+          ? "Items Viewer"
+          : "${value.length} Selected",
+    );
+  },
+),
+
+actions: [
+
+  ValueListenableBuilder(
+
+    valueListenable: selectedDocIds,
+
+    builder: (context, value, _) {
+
+      if (value.isEmpty) {
+        return const SizedBox();
+      }
+
+      return IconButton(
+
+        icon: const Icon(Icons.picture_as_pdf),
+
+        onPressed: () async {
+
+          try {
+
+            if (selectedGroup == null ||
+                selectedSubgroup == null) {
+              return;
+            }
+
+            var snapshot =
+                await FirebaseFirestore.instance
+                    .collection("Items")
+                    .where(
+                      "Group_Name",
+                      isEqualTo: selectedGroup,
+                    )
+                    .where(
+                      "SubGroup_Name",
+                      isEqualTo: selectedSubgroup,
+                    )
+                    .get();
+
+            var selectedItems =
+                snapshot.docs.where(
+              (e) =>
+                  value.contains(e.id),
+            ).toList();
+
+            await itemService
+    .exportSelectedItemsPdf(
+
+  selectedDocs: selectedItems,
+
+  groupName: selectedGroup ?? "",
+
+  subgroupName: selectedSubgroup ?? "",
+);
+
+          } catch (e) {
+
+            debugPrint(e.toString());
+          }
+        },
+      );
+    },
+  ),
+],
+
+  
+),
       body: Row(
         children: [
           // 🔹 LEFT PANEL (Groups + Subgroups)
@@ -192,7 +280,7 @@ class _GroupSubgroupItemsViewState extends State<GroupSubgroupItemsView> {
                                             ),
                                             const SizedBox(height: 6),
                                             Text(
-                                              "₹ ${totalAmount.toStringAsFixed(2)}",
+                                              "Rs. ${totalAmount.toStringAsFixed(2)}",
                                               style: const TextStyle(
                                                 fontSize: 20,
                                                 fontWeight: FontWeight.bold,
@@ -244,6 +332,81 @@ class _GroupSubgroupItemsViewState extends State<GroupSubgroupItemsView> {
                                   ],
                                 ),
                               ),
+
+
+                              Container(
+  padding: const EdgeInsets.symmetric(
+    horizontal: 12,
+    vertical: 8,
+  ),
+
+  child: Row(
+    mainAxisAlignment:
+        MainAxisAlignment.end,
+
+    children: [
+
+      // 🔹 SELECT ALL
+      IconButton(
+
+        tooltip: "Select All",
+
+        icon: const Icon(
+          Icons.select_all,
+        ),
+
+        onPressed: () {
+
+          bool allSelected =
+              selectedDocIds.value.length ==
+              docs.length;
+
+          if (allSelected) {
+
+            selectedDocIds.value = {};
+
+          } else {
+
+            selectedDocIds.value =
+                docs.map((e) => e.id).toSet();
+          }
+        },
+      ),
+
+      // 🔹 PDF EXPORT
+      IconButton(
+
+        tooltip: "Export PDF",
+
+        icon: const Icon(
+          Icons.picture_as_pdf,
+          color: Colors.red,
+        ),
+
+        onPressed: () async {
+
+          var selectedItems =
+              docs.where(
+            (e) => selectedDocIds.value
+                .contains(e.id),
+          ).toList();
+
+          await itemService
+    .exportSelectedItemsPdf(
+
+  selectedDocs: selectedItems,
+
+  groupName: selectedGroup ?? "",
+
+  subgroupName: selectedSubgroup ?? "",
+);
+        },
+      ),
+    ],
+  ),
+),
+
+                              
                               // 🔽 TABLE
                               SingleChildScrollView(
                                 scrollDirection: Axis.horizontal,
@@ -257,6 +420,7 @@ class _GroupSubgroupItemsViewState extends State<GroupSubgroupItemsView> {
                                     headingRowColor: MaterialStateProperty.all(
                                         Colors.blue.shade50),
                                     columns: [
+                                      const DataColumn(label: Text("Select")),
                                       const DataColumn(
                                           label: Text("Item Code")),
                                       const DataColumn(
@@ -269,6 +433,7 @@ class _GroupSubgroupItemsViewState extends State<GroupSubgroupItemsView> {
                                       const DataColumn(label: Text("Unit")),
                                       const DataColumn(label: Text("Amount")),
                                       const DataColumn(label: Text("Edit")),
+                                      const DataColumn(label: Text("Logs")),
                                       if (widget.isSuperAdmin)
                                         const DataColumn(label: Text("Unlock")),
                                     ],
@@ -276,19 +441,44 @@ class _GroupSubgroupItemsViewState extends State<GroupSubgroupItemsView> {
                                       var d =
                                           doc.data() as Map<String, dynamic>;
 
-                                      return DataRow(
-                                        onSelectChanged: (_) {
-                                          FocusScope.of(context).unfocus();
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) => ItemLogsScreen(
-                                                itemId: doc.id,
-                                              ),
-                                            ),
-                                          );
-                                        },
+                                      
+
+return DataRow(
+  
                                         cells: [
+                                          DataCell(
+
+  ValueListenableBuilder(
+
+    valueListenable: selectedDocIds,
+
+    builder: (context, value, _) {
+
+      return Checkbox(
+
+        value: value.contains(doc.id),
+
+        onChanged: (checked) {
+
+          final updated =
+              Set<String>.from(value);
+
+          if (checked == true) {
+
+            updated.add(doc.id);
+
+          } else {
+
+            updated.remove(doc.id);
+          }
+
+          selectedDocIds.value =
+              updated;
+        },
+      );
+    },
+  ),
+),
                                           DataCell(Text(d['Item_Code'] ?? "")),
                                           DataCell(Text(d['Item_Name'] ?? "")),
                                           DataCell(Text(d['Design_No'] ?? "")),
@@ -303,7 +493,7 @@ class _GroupSubgroupItemsViewState extends State<GroupSubgroupItemsView> {
                                           DataCell(Text(
                                               d['Unit']?.toString() ?? "")),
                                           DataCell(Text(
-                                              "₹ ${d['Amount']?.toString() ?? "0"}")),
+                                              "Rs. ${d['Amount']?.toString() ?? "0"}")),
 
                                           // EDIT
                                           DataCell(
@@ -326,6 +516,24 @@ class _GroupSubgroupItemsViewState extends State<GroupSubgroupItemsView> {
                                               },
                                             ),
                                           ),
+
+                                          DataCell(
+  IconButton(
+    icon: const Icon(Icons.history),
+
+    onPressed: () {
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ItemLogsScreen(
+            itemId: doc.id,
+          ),
+        ),
+      );
+    },
+  ),
+),
 
                                           // TOGGLE LOCK
                                           if (widget.isSuperAdmin)
@@ -368,4 +576,11 @@ class _GroupSubgroupItemsViewState extends State<GroupSubgroupItemsView> {
       ),
     );
   }
+  @override
+void dispose() {
+
+  selectedDocIds.dispose();
+
+  super.dispose();
+}
 }

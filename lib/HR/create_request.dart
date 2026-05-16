@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class CreateRequestScreen extends StatefulWidget {
-  const CreateRequestScreen({super.key});
+  final String departmentName;
+
+const CreateRequestScreen({
+  super.key,
+  required this.departmentName,
+});
 
   @override
   State<CreateRequestScreen> createState() => _CreateRequestScreenState();
@@ -121,7 +126,7 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
                                   "item_code": item['Item_Code'],
                                   "item_name": item['Item_Name'],
                                   "requested_qty": int.parse(qty.text),
-                                  "department": "HR",
+                                  "department": widget.departmentName,
                                   "status": "pending",
                                   "due_date": Timestamp.fromDate(dueDate!),
                                   "created_at":

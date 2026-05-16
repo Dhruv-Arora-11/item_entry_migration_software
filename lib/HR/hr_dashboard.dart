@@ -3,8 +3,13 @@ import 'package:app/HR/rejected_requests.dart';
 import 'package:app/HR/show_requests.dart';
 import 'package:flutter/material.dart';
 
-class HRDashboard extends StatelessWidget {
-  const HRDashboard({super.key});
+class DepartmentDashboard extends StatelessWidget {
+  final String departmentName;
+
+  const DepartmentDashboard({
+    super.key,
+    required this.departmentName,
+    });
 
   Widget buildCard(BuildContext context, String title, IconData icon, Color color, Widget page) {
     return InkWell(
@@ -41,16 +46,16 @@ class HRDashboard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("HR Dashboard")),
+      appBar: AppBar(title:Text("$departmentName Dashboard")),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            buildCard(context, "Request Item", Icons.add_box, Colors.blue, const CreateRequestScreen()),
+            buildCard(context, "Request Item", Icons.add_box, Colors.blue, CreateRequestScreen(departmentName: departmentName,)),
             const SizedBox(height: 16),
-            buildCard(context, "My Requests", Icons.list_alt, Colors.green, const HRRequestsScreen()),
+            buildCard(context, "My Requests", Icons.list_alt, Colors.green,  HRRequestsScreen(departmentName: departmentName,)),
             const SizedBox(height: 16),
-            buildCard(context, "Rejected Requests", Icons.cancel, Colors.red, const HRRejectedScreen()),
+            buildCard(context, "Rejected Requests", Icons.cancel, Colors.red,  HRRejectedScreen(departmentName: departmentName,)),
           ],
         ),
       ),

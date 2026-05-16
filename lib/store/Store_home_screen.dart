@@ -1,5 +1,5 @@
 import 'package:app/Excel_exporting/all_grps_and_subgrps.dart';
-import 'package:app/purchase_orde/making_purchase_orders_reciepts.dart';
+import 'package:app/purchase_order/making_purchase_orders_reciepts.dart';
 import 'package:app/store/requests/show_request.dart';
 import 'package:app/store/viewing_item.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';

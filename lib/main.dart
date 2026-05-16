@@ -1,3 +1,4 @@
+import 'package:app/purchase_order/making_purchase_orders_reciepts.dart';
 import 'package:app/store/auth/login_func.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -5,8 +6,6 @@ import 'firebase_options.dart';
 
 void main()async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Firebase Initialize with options (Mandatory for Windows)
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );

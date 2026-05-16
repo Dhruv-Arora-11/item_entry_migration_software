@@ -1,3 +1,4 @@
+import 'package:app/purchase_order/download_professional_pdf.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
@@ -28,6 +29,15 @@ class _PurchaseOrderScreenState extends State<PurchaseOrderScreen> {
   final partyOrderNo = TextEditingController();
   final remarks = TextEditingController();
 
+  final addressController = TextEditingController();
+final mobileController = TextEditingController();
+final emailController = TextEditingController();
+final gstinController = TextEditingController();
+final stateController = TextEditingController();
+final statusController = TextEditingController();
+
+final amountInWordsController = TextEditingController();
+
   DateTime selectedDate = DateTime.now();
 
   // 🔹 ITEMS
@@ -50,136 +60,6 @@ class _PurchaseOrderScreenState extends State<PurchaseOrderScreen> {
         "remark": TextEditingController(),
       });
     });
-  }
-
-  Future<void> downloadPdf() async {
-    final pdf = pw.Document();
-
-    pdf.addPage(
-      pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
-        build: (context) => [
-          // 🔹 TITLE
-          pw.Center(
-            child: pw.Text(
-              "PURCHASE ORDER",
-              style: pw.TextStyle(
-                fontSize: 22,
-                fontWeight: pw.FontWeight.bold,
-              ),
-            ),
-          ),
-
-          pw.SizedBox(height: 20),
-
-          // 🔹 HEADER DETAILS
-          pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-            children: [
-              pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Text("Order No : ${orderNo.text}"),
-                  pw.Text(
-                    "Date : ${selectedDate.day}/${selectedDate.month}/${selectedDate.year}",
-                  ),
-                  pw.Text("Department : ${department.text}"),
-                  pw.Text("Party Name : ${partyName.text}"),
-                ],
-              ),
-              pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Text("FoR : ${forController.text}"),
-                  pw.Text("Payment : ${payment.text}"),
-                ],
-              ),
-            ],
-          ),
-
-          pw.SizedBox(height: 20),
-
-          // 🔹 TABLE
-          pw.Table.fromTextArray(
-            border: pw.TableBorder.all(),
-            headers: [
-              "S.No",
-              "Description",
-              "HSN",
-              "Qty",
-              "Unit",
-              "Rate",
-              "CGST",
-              "SGST",
-              "IGST",
-              "Amount",
-            ],
-            data: List.generate(items.length, (index) {
-              var item = items[index];
-
-              return [
-                "${index + 1}",
-                item['description'].text,
-                item['hsn'].text,
-                item['qty'].text,
-                item['unit'].text,
-                item['rate'].text,
-                item['cgst'].text,
-                item['sgst'].text,
-                item['igst'].text,
-                item['amount'].text,
-              ];
-            }),
-          ),
-
-          pw.SizedBox(height: 20),
-
-          // 🔹 TOTAL
-          pw.Align(
-            alignment: pw.Alignment.centerRight,
-            child: pw.Text(
-              "Total Amount : Rs ${getTotalAmount().toStringAsFixed(2)}",
-              style: pw.TextStyle(
-                fontSize: 18,
-                fontWeight: pw.FontWeight.bold,
-              ),
-            ),
-          ),
-
-          pw.SizedBox(height: 20),
-
-          // 🔹 TERMS
-          pw.Text(
-            "Terms & Conditions",
-            style: pw.TextStyle(
-              fontWeight: pw.FontWeight.bold,
-            ),
-          ),
-
-          pw.SizedBox(height: 8),
-
-          pw.Text(termsConditions.text),
-
-          pw.SizedBox(height: 20),
-
-          // 🔹 FOOTER
-          pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-            children: [
-              pw.Text("Prepared By"),
-              pw.Text("Checked By"),
-              pw.Text("Authorized Sign"),
-            ],
-          ),
-        ],
-      ),
-    );
-
-    Uint8List bytes = await pdf.save();
-
-    await Printing.layoutPdf(
-      onLayout: (format) async => bytes,
-    );
   }
 
   double getTotalAmount() {
@@ -228,6 +108,13 @@ class _PurchaseOrderScreenState extends State<PurchaseOrderScreen> {
       "items": finalItems,
       "total_amount": getTotalAmount(),
       "created_at": FieldValue.serverTimestamp(),
+      "address": addressController.text,
+"mobile": mobileController.text,
+"email": emailController.text,
+"gstin": gstinController.text,
+"state": stateController.text,
+"status": statusController.text,
+"amount_in_words": amountInWordsController.text,
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -300,6 +187,83 @@ class _PurchaseOrderScreenState extends State<PurchaseOrderScreen> {
                         border: OutlineInputBorder(),
                       ),
                     ),
+
+                    const SizedBox(height: 12),
+
+TextField(
+  controller: addressController,
+  maxLines: 2,
+  decoration: const InputDecoration(
+    labelText: "Party Address",
+    border: OutlineInputBorder(),
+  ),
+),
+
+const SizedBox(height: 12),
+
+TextField(
+  controller: mobileController,
+  keyboardType: TextInputType.phone,
+  decoration: const InputDecoration(
+    labelText: "Mobile Number",
+    border: OutlineInputBorder(),
+  ),
+),
+
+const SizedBox(height: 12),
+
+TextField(
+  controller: emailController,
+  keyboardType: TextInputType.emailAddress,
+  decoration: const InputDecoration(
+    labelText: "Email Address",
+    border: OutlineInputBorder(),
+  ),
+),
+
+const SizedBox(height: 12),
+
+TextField(
+  controller: gstinController,
+  decoration: const InputDecoration(
+    labelText: "GSTIN",
+    border: OutlineInputBorder(),
+  ),
+),
+
+const SizedBox(height: 12),
+
+TextField(
+  controller: stateController,
+  decoration: const InputDecoration(
+    labelText: "State",
+    border: OutlineInputBorder(),
+  ),
+),
+
+const SizedBox(height: 12),
+
+TextField(
+  controller: statusController,
+  decoration: const InputDecoration(
+    labelText: "Status",
+    border: OutlineInputBorder(),
+  ),
+),
+
+const SizedBox(height: 12),
+
+TextField(
+  controller: amountInWordsController,
+  maxLines: 2,
+  decoration: const InputDecoration(
+    labelText: "Amount In Words",
+    hintText: "Example : Rupees Fifty Thousand Only",
+    border: OutlineInputBorder(),
+  ),
+),
+
+
                   ],
                 ),
               ),
@@ -452,7 +416,7 @@ class _PurchaseOrderScreenState extends State<PurchaseOrderScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  "Total Amount : ₹ ${getTotalAmount().toStringAsFixed(2)}",
+                  "Total Amount : Rs. ${getTotalAmount().toStringAsFixed(2)}",
                   style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -534,12 +498,50 @@ class _PurchaseOrderScreenState extends State<PurchaseOrderScreen> {
 
             const SizedBox(height: 20),
 
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: downloadPdf,
-                icon: const Icon(Icons.download,color: Colors.white,),
-                label: const Text("Download PDF"),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 18),
+              ),
+              onPressed: () async {
+                // 1. Convert the items with TextEditingControllers into plain text maps
+                List<Map<String, dynamic>> finalPdfItems = items.map((item) {
+                  return {
+                    "description": item['description'].text,
+                    "hsn": item['hsn'].text,
+                    "qty": item['qty'].text,
+                    "unit": item['unit'].text,
+                    "rate": item['rate'].text,
+                    "cgst": item['cgst'].text,
+                    "sgst": item['sgst'].text,
+                    "igst": item['igst'].text,
+                    "amount": item['amount'].text,
+                    "remark": item['remark'].text,
+                  };
+                }).toList();
+
+                // 2. Call your new PDF function with the exact controller values
+                await downloadPurchaseOrderPdf(
+  orderNo: orderNo.text,
+  partyName: partyName.text,
+  address: addressController.text,
+  gstin: gstinController.text,
+  mobile: mobileController.text,
+  department: department.text,
+  payment: payment.text,
+  forValue: forController.text,
+  terms: termsConditions.text,
+  items: finalPdfItems,
+  amountInWords: amountInWordsController.text,
+  email: emailController.text,
+state: stateController.text,
+status: statusController.text,
+);
+              },
+              child: Center(
+                child: const Text(
+                  "Print PDF",
+                  style: TextStyle(fontSize: 18),
+                ),
               ),
             ),
           ],

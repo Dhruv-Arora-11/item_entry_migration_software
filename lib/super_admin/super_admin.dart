@@ -12,6 +12,7 @@ class SuperAdminScreen extends StatefulWidget {
 }
 
 class _SuperAdminScreenState extends State<SuperAdminScreen> {
+  String? selectedDepartment;
   final TextEditingController usernameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController department_controller = TextEditingController();
@@ -25,6 +26,60 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
 
   String role = "user";
   bool isLoading = false;
+
+  // for creating departments like HR, Productions etc.
+  Future<void> createDepartment() async {
+
+  String departmentName =
+      department_controller.text.trim();
+
+  if (departmentName.isEmpty) {
+    return;
+  }
+
+  var existing = await FirebaseFirestore
+      .instance
+      .collection("departments")
+      .where(
+        "name",
+        isEqualTo: departmentName,
+      )
+      .get();
+
+  if (existing.docs.isNotEmpty) {
+
+    ScaffoldMessenger.of(context)
+        .showSnackBar(
+      const SnackBar(
+        content: Text(
+          "Department already exists",
+        ),
+      ),
+    );
+
+    return;
+  }
+
+  await FirebaseFirestore.instance
+      .collection("departments")
+      .add({
+
+    "name": departmentName,
+
+    "created_at":
+        FieldValue.serverTimestamp(),
+  });
+
+  department_controller.clear();
+
+  ScaffoldMessenger.of(context)
+      .showSnackBar(
+    const SnackBar(
+      content:
+          Text("Department Created"),
+    ),
+  );
+}
 
   // ✅ CREATE USER
   Future<void> createUser() async {
@@ -58,6 +113,7 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
         "username": username,
         "password": password,
         "role": role,
+        "department_name": selectedDepartment,
         "permissions": {
           "create": create,
           "read": read,
@@ -145,6 +201,130 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
 
+                Card(
+  elevation: 3,
+
+  shape: RoundedRectangleBorder(
+    borderRadius:
+        BorderRadius.circular(16),
+  ),
+
+  child: Padding(
+    padding: const EdgeInsets.all(16),
+
+    child: Column(
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
+
+      children: [
+
+        const Text(
+          "Create Department",
+
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight:
+                FontWeight.bold,
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        TextField(
+          controller:
+              department_controller,
+
+          decoration:
+              const InputDecoration(
+            labelText:
+                "Department Name",
+
+            border:
+                OutlineInputBorder(),
+
+            prefixIcon:
+                Icon(Icons.business),
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        SizedBox(
+          width: double.infinity,
+
+          child: ElevatedButton(
+            onPressed:
+                createDepartment,
+
+            child: const Text(
+              "Create Department",
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 20),
+
+        const Text(
+          "Departments",
+
+          style: TextStyle(
+            fontWeight:
+                FontWeight.bold,
+          ),
+        ),
+
+        const SizedBox(height: 10),
+
+        StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore
+              .instance
+              .collection(
+                  "departments")
+              .snapshots(),
+
+          builder:
+              (context, snapshot) {
+
+            if (!snapshot.hasData) {
+              return const Center(
+                child:
+                    CircularProgressIndicator(),
+              );
+            }
+
+            var docs =
+                snapshot.data!.docs;
+
+            if (docs.isEmpty) {
+              return const Text(
+                "No departments",
+              );
+            }
+
+            return Wrap(
+              spacing: 10,
+              runSpacing: 10,
+
+              children: docs.map((doc) {
+
+                var d =
+                    doc.data()
+                        as Map<String,
+                            dynamic>;
+
+                return Chip(
+                  label:
+                      Text(d['name']),
+                );
+              }).toList(),
+            );
+          },
+        ),
+      ],
+    ),
+  ),
+),
+
                 const SizedBox(height: 16),
 
                 // 🔷 FORM CARD
@@ -182,16 +362,76 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
                             border: OutlineInputBorder(),
                           ),
                           items:  [
-                            DropdownMenuItem(
-                                value: "user", child: Text("User")),
-                            DropdownMenuItem(
-                                value: "super_admin",
-                                child: Text("Super Admin")),
-                            DropdownMenuItem(value: "HR", child: Text("HR")),
-                            DropdownMenuItem(value: "HR", child: Text("Electrical")),
+                            DropdownMenuItem(value: "user", child: Text("User")),
+                            DropdownMenuItem(value: "super_admin",child: Text("Super Admin")),
+                            DropdownMenuItem(value: "Department", child: Text("Create Department")),
                           ],
                           onChanged: (val) => setState(() => role = val!),
                         ),
+
+                        if (role == "Department")
+
+  StreamBuilder<QuerySnapshot>(
+
+    stream: FirebaseFirestore
+        .instance
+        .collection("departments")
+        .snapshots(),
+  
+    builder: (context, snapshot) {
+
+      if (!snapshot.hasData) {
+        return const SizedBox();
+      }
+
+      var docs = snapshot.data!.docs;
+
+      return Padding(
+        padding:
+            const EdgeInsets.only(
+          top: 12,
+        ),
+
+        child:
+            DropdownButtonFormField(
+          value:
+              selectedDepartment,
+
+          decoration:
+              const InputDecoration(
+            labelText:
+                "Department",
+
+            border:
+                OutlineInputBorder(),
+          ),
+
+          items: docs.map((doc) {
+
+            var d = doc.data()
+                as Map<String,
+                    dynamic>;
+
+            return DropdownMenuItem(
+              value: d['name'],
+
+              child:
+                  Text(d['name']),
+            );
+          }).toList(),
+
+          onChanged: (val) {
+
+            setState(() {
+
+              selectedDepartment =
+                  val.toString();
+            });
+          },
+        ),
+      );
+    },
+  ),
                         const SizedBox(height: 16),
                         const Align(
                           alignment: Alignment.centerLeft,

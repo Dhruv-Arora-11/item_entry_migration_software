@@ -2,7 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 class HRRejectedScreen extends StatelessWidget {
-  const HRRejectedScreen({super.key});
+  final String departmentName;
+  const HRRejectedScreen({super.key,required this.departmentName});
 
   @override
   Widget build(BuildContext context) {
@@ -11,7 +12,7 @@ class HRRejectedScreen extends StatelessWidget {
       body: StreamBuilder(
         stream: FirebaseFirestore.instance
             .collection("requests")
-            .where("department", isEqualTo: "HR")
+            .where("department", isEqualTo: departmentName)
             .where("status", isEqualTo: "rejected")
             .snapshots(),
         builder: (context, snapshot) {
