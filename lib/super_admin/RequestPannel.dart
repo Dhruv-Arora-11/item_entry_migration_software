@@ -12,7 +12,6 @@ class RequestPanelScreen extends StatelessWidget {
         length: 3,
         child: Column(
           children: [
-
             const TabBar(
               tabs: [
                 Tab(text: "Pending"),
@@ -20,7 +19,6 @@ class RequestPanelScreen extends StatelessWidget {
                 Tab(text: "Rejected"),
               ],
             ),
-
             Expanded(
               child: TabBarView(
                 children: [
@@ -43,7 +41,6 @@ class RequestPanelScreen extends StatelessWidget {
           .where("status", isEqualTo: status)
           .snapshots(),
       builder: (context, snapshot) {
-
         // 🔹 LOADING
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -78,7 +75,6 @@ class RequestPanelScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-
                     // 🔹 ITEM NAME
                     Text(
                       d['item_name'] ?? "",
@@ -89,11 +85,11 @@ class RequestPanelScreen extends StatelessWidget {
                     const SizedBox(height: 6),
 
                     Text(
-  d['due_date'] != null
-      ? "Due: ${d['due_date'].toDate().day}-${d['due_date'].toDate().month}-${d['due_date'].toDate().year}"
-      : "No Due Date",
-),
-const SizedBox(height: 6),
+                      d['due_date'] != null
+                          ? "Due: ${d['due_date'].toDate().day}-${d['due_date'].toDate().month}-${d['due_date'].toDate().year}"
+                          : "No Due Date",
+                    ),
+                    const SizedBox(height: 6),
 
                     // 🔹 DETAILS
                     Text("Qty: ${d['requested_qty']}"),
@@ -129,17 +125,14 @@ const SizedBox(height: 6),
                               doc.reference.update({
                                 "status": "approved",
                                 "approved_by": "super_admin",
-                                "approved_at":
-                                    FieldValue.serverTimestamp(),
+                                "approved_at": FieldValue.serverTimestamp(),
                                 "store_status": "pending",
                               });
                             },
                             icon: const Icon(Icons.check),
                             label: const Text("Approve"),
                           ),
-
                           const SizedBox(width: 10),
-
                           ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.red),
@@ -147,8 +140,7 @@ const SizedBox(height: 6),
                               doc.reference.update({
                                 "status": "rejected",
                                 "rejected_by": "super_admin",
-                                "rejected_at":
-                                    FieldValue.serverTimestamp(),
+                                "rejected_at": FieldValue.serverTimestamp(),
                               });
                             },
                             icon: const Icon(Icons.close),

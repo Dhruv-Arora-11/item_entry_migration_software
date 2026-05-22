@@ -16,7 +16,7 @@ class HRRequestsScreen extends StatelessWidget {
       body: StreamBuilder(
         stream: FirebaseFirestore.instance
             .collection("requests")
-            .where("department", isEqualTo: "HR")
+            .where("department", isEqualTo: departmentName)
             .where("status", whereIn: ["pending", "approved"]).snapshots(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
