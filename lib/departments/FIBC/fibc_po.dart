@@ -8,6 +8,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
+/// Design tokens matching the FIBC ERP Interface
+class ERPTheme {
+  static const Color primaryNavy = Color(0xFF0F172A);
+  static const Color headerNavy = Color(0xFF1E293B);
+  static const Color accentBlue = Color(0xFF0284C7);
+  static const Color backgroundBg = Color(0xFFF1F5F9);
+  static const Color cardBg = Colors.white;
+  static const Color cardBorder = Color(0xFFE2E8F0);
+  static const Color textDark = Color(0xFF0F172A);
+  static const Color textMuted = Color(0xFF64748B);
+
+  // Button Colors
+  static const Color saveBlue = Color(0xFF2563EB);
+  static const Color updateGreen = Color(0xFF10B981);
+  static const Color clearOrange = Color(0xFFF59E0B);
+  static const Color deleteRed = Color(0xFFEF4444);
+  static const Color printPurple = Color(0xFF8B5CF6);
+}
+
 class FibcPo extends StatefulWidget {
   const FibcPo({super.key});
 
@@ -20,12 +39,9 @@ class _FibcPoState extends State<FibcPo> {
   final TextEditingController poNameController = TextEditingController();
   final TextEditingController poQtyController = TextEditingController();
   final TextEditingController poRefController = TextEditingController();
-  final TextEditingController poNoController =
-      TextEditingController(); // Manual PO Number
+  final TextEditingController poNoController = TextEditingController();
   final TextEditingController poEmailController = TextEditingController();
   final TextEditingController poBagLengthController = TextEditingController();
-  final List<Uint8List> _selectedImagesBytes = [];
-  final List<String> _selectedImagesNames = [];
   final TextEditingController poBagWidthController = TextEditingController();
   final TextEditingController poBagHeightController = TextEditingController();
   final TextEditingController poBagColorController = TextEditingController();
@@ -33,10 +49,15 @@ class _FibcPoState extends State<FibcPo> {
   final TextEditingController safetyFactor = TextEditingController();
   final TextEditingController swl = TextEditingController();
   final TextEditingController constructionStyle = TextEditingController();
+  
+  final List<Uint8List> _selectedImagesBytes = [];
+  final List<String> _selectedImagesNames = [];
   final FocusNode _emailFocusNode = FocusNode();
+  
   bool _isSubmitting = false;
   bool _isLoadingData = true;
 
+  // Autocomplete Data Sets
   Set<String> poNos = {};
   Set<String> customerNames = {};
   Set<String> quantities = {};
@@ -47,18 +68,12 @@ class _FibcPoState extends State<FibcPo> {
   Set<String> bagWidths = {};
   Set<String> bagHeights = {};
   Set<String> swls = {};
-  Set<String> safetyFactors = {
-    "2 : 1",
-    "3 : 1",
-    "4 : 1",
-    "5 : 1",
-    "6 : 1",
-    "7 : 1",
-    "8 : 1"
-  };
   Set<String> constructionStyles = {};
   Set<String> bagColors = {};
   Set<String> otherSpecs = {};
+  Set<String> safetyFactors = {
+    "2 : 1", "3 : 1", "4 : 1", "5 : 1", "6 : 1", "7 : 1", "8 : 1"
+  };
 
   @override
   void initState() {
@@ -66,18 +81,10 @@ class _FibcPoState extends State<FibcPo> {
     _fetchUniqueData();
     _emailFocusNode.addListener(() {
       if (!_emailFocusNode.hasFocus) {
-        if (!poEmailController.text.contains('@') ||
-            !poEmailController.text.contains('.')) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text(
-                    "Please enter a valid email address containing '@' and '.'"),
-                backgroundColor: Colors.red.shade600,
-              ),
-            );
+        if (!poEmailController.text.contains('@') || !poEmailController.text.contains('.')) {
+          if (mounted && poEmailController.text.isNotEmpty) {
+            _showSnack("Please enter a valid email address containing '@' and '.'", ERPTheme.deleteRed);
           }
-          _emailFocusNode.requestFocus();
         }
       }
     });
@@ -85,72 +92,34 @@ class _FibcPoState extends State<FibcPo> {
 
   Future<void> _fetchUniqueData() async {
     try {
-      final snapshot =
-          await FirebaseFirestore.instance.collection("fibc_po").get();
+      final snapshot = await FirebaseFirestore.instance.collection("fibc_po").get();
       for (var doc in snapshot.docs) {
         final data = doc.data();
-        if (data["po_no"] != null && data["po_no"].toString().isNotEmpty) {
-          poNos.add(data["po_no"].toString());
+        void addIfValid(Set<String> set, String key) {
+          if (data[key] != null && data[key].toString().isNotEmpty) {
+            set.add(data[key].toString());
+          }
         }
-        if (data["customer_name"] != null &&
-            data["customer_name"].toString().isNotEmpty) {
-          customerNames.add(data["customer_name"].toString());
-        }
-        if (data["quantity"] != null &&
-            data["quantity"].toString().isNotEmpty) {
-          quantities.add(data["quantity"].toString());
-        }
-        if (data["contact_person"] != null &&
-            data["contact_person"].toString().isNotEmpty) {
-          contactPersons.add(data["contact_person"].toString());
-        }
-        if (data["contact_number"] != null &&
-            data["contact_number"].toString().isNotEmpty) {
-          contactNumbers.add(data["contact_number"].toString());
-        }
-        if (data["email"] != null && data["email"].toString().isNotEmpty) {
-          emails.add(data["email"].toString());
-        }
-        if (data["bag_length"] != null &&
-            data["bag_length"].toString().isNotEmpty) {
-          bagLengths.add(data["bag_length"].toString());
-        }
-        if (data["bag_width"] != null &&
-            data["bag_width"].toString().isNotEmpty) {
-          bagWidths.add(data["bag_width"].toString());
-        }
-        if (data["bag_height"] != null &&
-            data["bag_height"].toString().isNotEmpty) {
-          bagHeights.add(data["bag_height"].toString());
-        }
-        if (data["swl"] != null && data["swl"].toString().isNotEmpty) {
-          swls.add(data["swl"].toString());
-        }
-        if (data["safety_factor"] != null &&
-            data["safety_factor"].toString().isNotEmpty) {
-          safetyFactors.add(data["safety_factor"].toString());
-        }
-        if (data["construction_style"] != null &&
-            data["construction_style"].toString().isNotEmpty) {
-          constructionStyles.add(data["construction_style"].toString());
-        }
-        if (data["bag_color"] != null &&
-            data["bag_color"].toString().isNotEmpty) {
-          bagColors.add(data["bag_color"].toString());
-        }
-        if (data["other_tech_spec"] != null &&
-            data["other_tech_spec"].toString().isNotEmpty) {
-          otherSpecs.add(data["other_tech_spec"].toString());
-        }
+
+        addIfValid(poNos, "po_no");
+        addIfValid(customerNames, "customer_name");
+        addIfValid(quantities, "quantity");
+        addIfValid(contactPersons, "contact_person");
+        addIfValid(contactNumbers, "contact_number");
+        addIfValid(emails, "email");
+        addIfValid(bagLengths, "bag_length");
+        addIfValid(bagWidths, "bag_width");
+        addIfValid(bagHeights, "bag_height");
+        addIfValid(swls, "swl");
+        addIfValid(safetyFactors, "safety_factor");
+        addIfValid(constructionStyles, "construction_style");
+        addIfValid(bagColors, "bag_color");
+        addIfValid(otherSpecs, "other_tech_spec");
       }
     } catch (e) {
-      print("Error fetching data: $e");
+      debugPrint("Error fetching data: $e");
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoadingData = false;
-        });
-      }
+      if (mounted) setState(() => _isLoadingData = false);
     }
   }
 
@@ -160,6 +129,13 @@ class _FibcPoState extends State<FibcPo> {
     super.dispose();
   }
 
+  void _showSnack(String msg, Color bg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), backgroundColor: bg, behavior: SnackBarBehavior.floating),
+    );
+  }
+
+  // --- Image Handling Logic ---
   Future<void> _pickPoImages() async {
     final picker = ImagePicker();
     try {
@@ -176,14 +152,7 @@ class _FibcPoState extends State<FibcPo> {
         }
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Error picking images: $e"),
-            backgroundColor: Colors.red.shade600,
-          ),
-        );
-      }
+      if (mounted) _showSnack("Error picking images: $e", ERPTheme.deleteRed);
     }
   }
 
@@ -199,14 +168,7 @@ class _FibcPoState extends State<FibcPo> {
       await file.writeAsBytes(bytes);
       return filePath;
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to save image: $e'),
-            backgroundColor: Colors.red.shade600,
-          ),
-        );
-      }
+      if (mounted) _showSnack('Failed to save image locally: $e', ERPTheme.deleteRed);
       return null;
     }
   }
@@ -214,81 +176,44 @@ class _FibcPoState extends State<FibcPo> {
   Future<String?> _uploadPoImageToStorage(Uint8List bytes, String fileName) async {
     try {
       final uniqueName = '${DateTime.now().millisecondsSinceEpoch}_$fileName';
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('fibc_po_images/$uniqueName');
+      final ref = FirebaseStorage.instance.ref().child('fibc_po_images/$uniqueName');
       await ref.putData(bytes).timeout(const Duration(seconds: 15));
       return await ref.getDownloadURL().timeout(const Duration(seconds: 15));
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to upload image to storage: $e'),
-            backgroundColor: Colors.red.shade600,
-          ),
-        );
-      }
+      if (mounted) _showSnack('Failed to upload image to storage: $e', ERPTheme.deleteRed);
       return null;
     }
   }
 
   Future<void> _saveDataToFirebase() async {
-    if (!poEmailController.text.contains('@') ||
-        !poEmailController.text.contains('.')) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text("Please enter a valid email address."),
-            backgroundColor: Colors.red.shade600,
-          ),
-        );
-      }
+    if (poEmailController.text.isNotEmpty && 
+       (!poEmailController.text.contains('@') || !poEmailController.text.contains('.'))) {
+      _showSnack("Please enter a valid email address.", ERPTheme.deleteRed);
       _emailFocusNode.requestFocus();
       return;
     }
 
     if (poNoController.text.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text("Please enter a PO Number."),
-            backgroundColor: Colors.red.shade600,
-          ),
-        );
-      }
+      _showSnack("Please enter a PO Number.", ERPTheme.deleteRed);
       return;
     }
 
-    setState(() {
-      _isSubmitting = true;
-    });
+    setState(() => _isSubmitting = true);
 
     final List<String> imageUrls = [];
     final List<String> localPaths = [];
     for (int i = 0; i < _selectedImagesBytes.length; i++) {
-      // 1. Upload to Firebase Storage
-      final downloadUrl = await _uploadPoImageToStorage(
-        _selectedImagesBytes[i],
-        _selectedImagesNames[i],
-      );
-      if (downloadUrl != null) {
-        imageUrls.add(downloadUrl);
-      }
+      final downloadUrl = await _uploadPoImageToStorage(_selectedImagesBytes[i], _selectedImagesNames[i]);
+      if (downloadUrl != null) imageUrls.add(downloadUrl);
 
-      // 2. Save locally if running on a desktop/mobile platform (not Web)
       if (!kIsWeb) {
-        final localPath = await _savePoImageToFolder(
-          _selectedImagesBytes[i],
-          _selectedImagesNames[i],
-        );
-        if (localPath != null) {
-          localPaths.add(localPath);
-        }
+        final localPath = await _savePoImageToFolder(_selectedImagesBytes[i], _selectedImagesNames[i]);
+        if (localPath != null) localPaths.add(localPath);
       }
     }
 
     final Map<String, dynamic> poData = {
-      "po_no": poNoController.text.toUpperCase(), // Manual entry
+      "po_no": poNoController.text.toUpperCase(),
       "customer_name": poNameController.text,
       "quantity": poQtyController.text,
       "contact_person": poRefController.text,
@@ -311,618 +236,419 @@ class _FibcPoState extends State<FibcPo> {
     try {
       await FirebaseFirestore.instance.collection("fibc_po").add(poData);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text("Data has been saved successfully."),
-            backgroundColor: Colors.green.shade600,
-          ),
-        );
-        setState(() {
-          poNoController.clear();
-          poQtyController.clear();
-          poNameController.clear();
-          poRefController.clear();
-          poContactController.clear();
-          poEmailController.clear();
-          poBagLengthController.clear();
-          poBagWidthController.clear();
-          poBagHeightController.clear();
-          swl.clear();
-          safetyFactor.clear();
-          constructionStyle.clear();
-          poBagColorController.clear();
-          otherTechSpecification.clear();
-          _selectedImagesBytes.clear();
-          _selectedImagesNames.clear();
-        });
+        _showSnack("Data has been saved successfully.", ERPTheme.updateGreen);
+        _clearForm();
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to save data: $e'),
-            backgroundColor: Colors.red.shade600,
-          ),
-        );
-      }
+      if (mounted) _showSnack('Failed to save data: $e', ERPTheme.deleteRed);
     } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
+      if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+
+  void _clearForm() {
+    setState(() {
+      poNoController.clear();
+      poQtyController.clear();
+      poNameController.clear();
+      poRefController.clear();
+      poContactController.clear();
+      poEmailController.clear();
+      poBagLengthController.clear();
+      poBagWidthController.clear();
+      poBagHeightController.clear();
+      swl.clear();
+      safetyFactor.clear();
+      constructionStyle.clear();
+      poBagColorController.clear();
+      otherTechSpecification.clear();
+      _selectedImagesBytes.clear();
+      _selectedImagesNames.clear();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final double screenWidth = MediaQuery.of(context).size.width;
-    final double formMaxWidth = 1000.0;
-    final double formWidth =
-        screenWidth < formMaxWidth ? screenWidth * 0.9 : formMaxWidth;
-
     return Scaffold(
-      backgroundColor: Colors.blue.shade50,
-      appBar: AppBar(
-        title: const Text(
-          "Kulvir Textile Private Limited",
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
-        ),
-        backgroundColor: Colors.blue,
-        centerTitle: true,
-        elevation: 0,
-      ),
-      body: Center(
-        child: _isLoadingData
-            ? const CircularProgressIndicator(color: Colors.blue)
-            : Container(
-                margin:
-                    const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-                padding: const EdgeInsets.all(32),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                width: formWidth,
-                child: SingleChildScrollView(
-                  child: Column(
+      backgroundColor: ERPTheme.backgroundBg,
+      body: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              children: [
+                _buildTopHeader(),
+                Expanded(
+                  child: Stack(
                     children: [
-                      const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.shopping_bag,
-                            color: Colors.blue,
-                            size: 40,
-                          ),
-                          SizedBox(width: 10),
-                          Text(
-                            "FIBC Purchase Order",
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.blue,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 32),
-                      _buildTextField(
-                        controller: poNoController,
-                        label: "PO Number *",
-                        icon: Icons.receipt_long,
-                        isNumeric: false,
-                        autofocus: true,
-                        onChanged: (value) {},
-                        suggestions: poNos.toList(),
-                        onSuggestionSelected: (suggestion) {
-                          setState(() {
-                            poNoController.text = suggestion.toUpperCase();
-                          });
-                        },
-                        inputFormatters: [
-                          TextInputFormatter.withFunction((oldValue, newValue) {
-                            return TextEditingValue(
-                              text: newValue.text.toUpperCase(),
-                              selection: newValue.selection,
-                            );
-                          }),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      _buildTextField(
-                        controller: poNameController,
-                        label: "Customer Name *",
-                        icon: Icons.person,
-                        onChanged: (value) {},
-                        suggestions: customerNames.toList(),
-                        onSuggestionSelected: (suggestion) {
-                          setState(() {
-                            poNameController.text = suggestion;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      _buildTextField(
-                        controller: poRefController,
-                        label: "Contact Person (Name) *",
-                        icon: Icons.person_outline,
-                        onChanged: (value) {},
-                        suggestions: contactPersons.toList(),
-                        onSuggestionSelected: (suggestion) {
-                          setState(() {
-                            poRefController.text = suggestion;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      _buildTextField(
-                        controller: poContactController,
-                        label: "Contact Number *",
-                        icon: Icons.phone,
-                        isNumeric: false,
-                        onChanged: (value) {},
-                        suggestions: contactNumbers.toList(),
-                        onSuggestionSelected: (suggestion) {
-                          setState(() {
-                            poContactController.text = suggestion.toUpperCase();
-                          });
-                        },
-                        inputFormatters: [
-                          TextInputFormatter.withFunction((oldValue, newValue) {
-                            return TextEditingValue(
-                              text: newValue.text.toUpperCase(),
-                              selection: newValue.selection,
-                            );
-                          }),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      _buildTextField(
-                        controller: poEmailController,
-                        label: "Email Address *",
-                        icon: Icons.email,
-                        onChanged: (value) {},
-                        suggestions: emails.toList(),
-                        onSuggestionSelected: (suggestion) {
-                          setState(() {
-                            poEmailController.text = suggestion;
-                          });
-                        },
-                        focusNode: _emailFocusNode,
-                      ),
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 16),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey.shade300),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(Icons.collections,
-                                    color: Colors.blue),
-                                const SizedBox(width: 8),
-                                const Text(
-                                  "PO Images (Optional)",
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                const Spacer(),
-                                if (_selectedImagesBytes.isNotEmpty)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.blue.shade100,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text(
-                                      "${_selectedImagesBytes.length} Selected",
-                                      style: TextStyle(
-                                        color: Colors.blue.shade800,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            SizedBox(
-                              width: double.infinity,
-                              child: OutlinedButton.icon(
-                                onPressed: _pickPoImages,
-                                icon: const Icon(
-                                    Icons.add_photo_alternate_outlined),
-                                label: const Text("Select / Add PO Images"),
-                                style: OutlinedButton.styleFrom(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 12),
-                                  side: BorderSide(color: Colors.blue.shade300),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
+                      _isLoadingData
+                          ? const Center(child: CircularProgressIndicator())
+                          : SingleChildScrollView(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildGeneralInfoCard(),
+                                  const SizedBox(height: 16),
+                                  _buildBagSpecsCard(),
+                                  const SizedBox(height: 16),
+                                  _buildTechSpecsCard(),
+                                  const SizedBox(height: 16),
+                                  _buildAttachmentsCard(),
+                                  const SizedBox(height: 20),
+                                  _buildActionButtons(),
+                                ],
                               ),
                             ),
-                            if (_selectedImagesBytes.isNotEmpty) ...[
-                              const SizedBox(height: 16),
-                              Wrap(
-                                spacing: 12,
-                                runSpacing: 12,
-                                children: List.generate(
-                                    _selectedImagesBytes.length, (index) {
-                                  return Stack(
-                                    clipBehavior: Clip.none,
-                                    children: [
-                                      Container(
-                                        width: 140,
-                                        height: 140,
-                                        decoration: BoxDecoration(
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                          border: Border.all(
-                                              color: Colors.grey.shade300),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black
-                                                  .withOpacity(0.05),
-                                              blurRadius: 4,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
-                                        ),
-                                        child: ClipRRect(
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                          child: Image.memory(
-                                            _selectedImagesBytes[index],
-                                            fit: BoxFit.cover,
-                                          ),
-                                        ),
-                                      ),
-                                      Positioned(
-                                        top: -6,
-                                        right: -6,
-                                        child: InkWell(
-                                          onTap: () {
-                                            setState(() {
-                                              _selectedImagesBytes
-                                                  .removeAt(index);
-                                              _selectedImagesNames
-                                                  .removeAt(index);
-                                            });
-                                          },
-                                          child: Container(
-                                            padding: const EdgeInsets.all(4),
-                                            decoration: const BoxDecoration(
-                                              color: Colors.red,
-                                              shape: BoxShape.circle,
-                                            ),
-                                            child: const Icon(
-                                              Icons.close,
-                                              size: 14,
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      Positioned(
-                                        bottom: 0,
-                                        left: 0,
-                                        right: 0,
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 4, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color:
-                                                Colors.black.withOpacity(0.6),
-                                            borderRadius:
-                                                const BorderRadius.only(
-                                              bottomLeft: Radius.circular(8),
-                                              bottomRight: Radius.circular(8),
-                                            ),
-                                          ),
-                                          child: Text(
-                                            _selectedImagesNames[index],
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 10,
-                                            ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            textAlign: TextAlign.center,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  );
-                                }),
-                              ),
-                            ] else ...[
-                              const SizedBox(height: 12),
-                              Center(
-                                child: Text(
-                                  "No images selected yet. Please upload at least one image.",
-                                  style: TextStyle(
-                                    color: Colors.grey.shade500,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
+                      if (_isSubmitting)
+                        Container(
+                          color: Colors.black.withOpacity(0.15),
+                          child: const Center(child: CircularProgressIndicator()),
                         ),
-                      ),
-                      const SizedBox(height: 24),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildTextField(
-                              controller: poBagLengthController,
-                              label: "Length",
-                              icon: Icons.straighten,
-                              isNumeric: true,
-                              suggestions: bagLengths.toList(),
-                              onSuggestionSelected: (val) {
-                                setState(() {
-                                  poBagLengthController.text = val;
-                                });
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _buildTextField(
-                              controller: poBagWidthController,
-                              label: "Width",
-                              icon: Icons.straighten,
-                              isNumeric: true,
-                              suggestions: bagWidths.toList(),
-                              onSuggestionSelected: (val) {
-                                setState(() {
-                                  poBagWidthController.text = val;
-                                });
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _buildTextField(
-                              controller: poBagHeightController,
-                              label: "Height",
-                              icon: Icons.height,
-                              isNumeric: true,
-                              suggestions: bagHeights.toList(),
-                              onSuggestionSelected: (val) {
-                                setState(() {
-                                  poBagHeightController.text = val;
-                                });
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      _buildTextField(
-                        controller: poQtyController,
-                        label: "Total Quantity (Pcs) *",
-                        icon: Icons.format_list_numbered,
-                        isNumeric: true,
-                        onChanged: (value) {},
-                        suggestions: quantities.toList(),
-                        onSuggestionSelected: (suggestion) {
-                          setState(() {
-                            poQtyController.text = suggestion;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      _buildTextField(
-                        controller: swl,
-                        label: "SWL",
-                        icon: Icons.monitor_weight,
-                        suggestions: swls.toList(),
-                        onSuggestionSelected: (val) {
-                          setState(() {
-                            swl.text = val;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      _buildTextField(
-                        controller: safetyFactor,
-                        label: "Safety Factor",
-                        icon: Icons.health_and_safety,
-                        suggestions: safetyFactors.toList(),
-                        onSuggestionSelected: (val) {
-                          setState(() {
-                            safetyFactor.text = val;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      _buildTextField(
-                        controller: constructionStyle,
-                        label: "Construction Style",
-                        icon: Icons.architecture,
-                        suggestions: constructionStyles.toList(),
-                        onSuggestionSelected: (val) {
-                          setState(() {
-                            constructionStyle.text = val;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      _buildTextField(
-                        controller: poBagColorController,
-                        label: "Bag Color",
-                        icon: Icons.color_lens,
-                        suggestions: bagColors.toList(),
-                        onSuggestionSelected: (val) {
-                          setState(() {
-                            poBagColorController.text = val;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      _buildTextField(
-                        controller: otherTechSpecification,
-                        label: "Other Technical Specifications",
-                        icon: Icons.description,
-                        maxLines: 3,
-                      ),
-                      const SizedBox(height: 32),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 54,
-                        child: ElevatedButton(
-                          onPressed: _isSubmitting ? null : _saveDataToFirebase,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            elevation: 2,
-                          ),
-                          child: _isSubmitting
-                              ? const SizedBox(
-                                  height: 24,
-                                  width: 24,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2.5,
-                                  ),
-                                )
-                              : const Text(
-                                  "Save Purchase Order",
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                        ),
-                      ),
                     ],
                   ),
                 ),
-              ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required IconData icon,
-    bool isNumeric = false,
-    bool autofocus = false,
-    Function(String)? onChanged,
-    List<String>? suggestions,
-    Function(String)? onSuggestionSelected,
-    FocusNode? focusNode,
-    int maxLines = 1,
-    List<TextInputFormatter>? inputFormatters,
-  }) {
-    final bool hasSuggestions = suggestions != null && suggestions.isNotEmpty;
+  // --- UI BUILDERS ---
 
-    Widget buildField(BuildContext context,
-        TextEditingController fieldController, FocusNode fieldFocusNode) {
-      return TextField(
-        controller: fieldController,
-        focusNode: fieldFocusNode,
-        autofocus: autofocus,
-        maxLines: maxLines,
-        keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
-        inputFormatters: inputFormatters ??
-            (isNumeric
-                ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-]'))]
-                : null),
-        onChanged: (value) {
-          if (fieldController != controller) {
-            controller.text = value;
-          }
-          if (onChanged != null) onChanged(value);
-        },
-        decoration: InputDecoration(
-          labelText: label,
-          prefixIcon: Icon(icon, color: Colors.blue),
-          filled: true,
-          fillColor: Colors.grey.shade50,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.grey.shade300),
+  Widget _buildTopHeader() {
+    return Container(
+      height: 50,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      color: ERPTheme.headerNavy,
+      child: Row(
+        children: [
+          const Text(
+            'FIBC ERP',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
           ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.grey.shade300),
+          const Spacer(),
+          const Text(
+            'New Purchase Order',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15),
           ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Colors.blue, width: 2),
+          const Spacer(),
+          const Icon(Icons.account_circle, color: Colors.white, size: 22),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionCard({required String title, required IconData icon, required Widget child}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: ERPTheme.cardBg,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: ERPTheme.cardBorder),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: ERPTheme.accentBlue),
+              const SizedBox(width: 8),
+              Text(
+                title.toUpperCase(),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: ERPTheme.textDark),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGeneralInfoCard() {
+    return _buildSectionCard(
+      title: 'General Information',
+      icon: Icons.receipt_long_outlined,
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _buildAutocompleteField(
+                  'PO Number *', 
+                  poNoController, 
+                  poNos.toList(), 
+                  uppercase: true,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildAutocompleteField('Customer Name *', poNameController, customerNames.toList()),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildAutocompleteField('Contact Person', poRefController, contactPersons.toList()),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildAutocompleteField('Contact Number', poContactController, contactNumbers.toList()),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildAutocompleteField(
+                  'Email Address', 
+                  poEmailController, 
+                  emails.toList(),
+                  focusNode: _emailFocusNode
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(child: SizedBox()), // Alignment Spacer
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBagSpecsCard() {
+    return _buildSectionCard(
+      title: 'Bag Specifications',
+      icon: Icons.straighten_outlined,
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(child: _buildAutocompleteField('Bag Length', poBagLengthController, bagLengths.toList(), isNumeric: true)),
+              const SizedBox(width: 12),
+              Expanded(child: _buildAutocompleteField('Bag Width', poBagWidthController, bagWidths.toList(), isNumeric: true)),
+              const SizedBox(width: 12),
+              Expanded(child: _buildAutocompleteField('Bag Height', poBagHeightController, bagHeights.toList(), isNumeric: true)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(child: _buildAutocompleteField('Bag Color', poBagColorController, bagColors.toList())),
+              const SizedBox(width: 12),
+              Expanded(child: _buildAutocompleteField('Construction Style', constructionStyle, constructionStyles.toList())),
+              const SizedBox(width: 12),
+              const Expanded(child: SizedBox()),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTechSpecsCard() {
+    return _buildSectionCard(
+      title: 'Technical Specifications',
+      icon: Icons.settings_outlined,
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(child: _buildAutocompleteField('Total Quantity (Pcs) *', poQtyController, quantities.toList(), isNumeric: true)),
+              const SizedBox(width: 12),
+              Expanded(child: _buildAutocompleteField('SWL', swl, swls.toList())),
+              const SizedBox(width: 12),
+              Expanded(child: _buildAutocompleteField('Safety Factor', safetyFactor, safetyFactors.toList())),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildTextField('Other Technical Specifications', otherTechSpecification, maxLines: 3),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAttachmentsCard() {
+    return _buildSectionCard(
+      title: 'Attachments',
+      icon: Icons.attach_file_outlined,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          OutlinedButton.icon(
+            onPressed: _pickPoImages,
+            icon: const Icon(Icons.add_photo_alternate_outlined, size: 18),
+            label: const Text('Select / Add PO Images'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: ERPTheme.primaryNavy,
+              side: const BorderSide(color: ERPTheme.cardBorder),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            ),
+          ),
+          if (_selectedImagesBytes.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: List.generate(_selectedImagesBytes.length, (index) {
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: ERPTheme.cardBorder),
+                        image: DecorationImage(
+                          image: MemoryImage(_selectedImagesBytes[index]),
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: -6,
+                      right: -6,
+                      child: InkWell(
+                        onTap: () {
+                          setState(() {
+                            _selectedImagesBytes.removeAt(index);
+                            _selectedImagesNames.removeAt(index);
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: ERPTheme.deleteRed,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close, size: 12, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }),
+            ),
+          ]
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return Row(
+      children: [
+        Expanded(
+          child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: ERPTheme.saveBlue,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            ),
+            onPressed: _isSubmitting ? null : _saveDataToFirebase,
+            icon: const Icon(Icons.save, size: 16),
+            label: const Text('SAVE PURCHASE ORDER', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
           ),
         ),
-      );
-    }
+        const SizedBox(width: 12),
+        Expanded(
+          child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: ERPTheme.clearOrange,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            ),
+            onPressed: _clearForm,
+            icon: const Icon(Icons.cleaning_services, size: 16),
+            label: const Text('CLEAR FORM', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          ),
+        ),
+      ],
+    );
+  }
 
-    if (hasSuggestions) {
-      return Autocomplete<String>(
-        optionsBuilder: (TextEditingValue textEditingValue) {
-          if (textEditingValue.text.isEmpty) {
-            return const Iterable<String>.empty();
-          }
-          return suggestions.where((String option) {
-            return option
-                .toLowerCase()
-                .contains(textEditingValue.text.toLowerCase());
-          });
-        },
-        onSelected: (String selection) {
-          controller.text = selection;
-          if (onSuggestionSelected != null) onSuggestionSelected(selection);
-          if (onChanged != null) onChanged(selection);
-        },
-        fieldViewBuilder: (BuildContext context,
-            TextEditingController textEditingController,
-            FocusNode fieldFocusNode,
-            VoidCallback onFieldSubmitted) {
-          // Sync controllers if needed
-          if (textEditingController.text != controller.text) {
-            textEditingController.text = controller.text;
-          }
-          controller.addListener(() {
-            if (textEditingController.text != controller.text) {
-              textEditingController.text = controller.text;
-            }
-          });
-          return buildField(
-              context, textEditingController, focusNode ?? fieldFocusNode);
-        },
-      );
-    } else {
-      return buildField(context, controller, focusNode ?? FocusNode());
-    }
+  // --- Helper Widgets for Form Fields ---
+
+  Widget _buildTextField(String label, TextEditingController controller, {bool readOnly = false, int maxLines = 1}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: ERPTheme.textMuted)),
+        const SizedBox(height: 4),
+        SizedBox(
+          height: maxLines > 1 ? null : 38,
+          child: TextField(
+            controller: controller,
+            readOnly: readOnly,
+            maxLines: maxLines,
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: readOnly ? ERPTheme.textMuted : ERPTheme.textDark),
+            decoration: _inputDecoration(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAutocompleteField(String label, TextEditingController controller, List<String> suggestions, {bool uppercase = false, bool isNumeric = false, FocusNode? focusNode}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: ERPTheme.textMuted)),
+        const SizedBox(height: 4),
+        SizedBox(
+          height: 38,
+          child: Autocomplete<String>(
+            optionsBuilder: (TextEditingValue textEditingValue) {
+              if (textEditingValue.text.isEmpty) return const Iterable<String>.empty();
+              return suggestions.where((String option) => option.toLowerCase().contains(textEditingValue.text.toLowerCase()));
+            },
+            onSelected: (String selection) {
+              controller.text = uppercase ? selection.toUpperCase() : selection;
+            },
+            fieldViewBuilder: (BuildContext context, TextEditingController textEditingController, FocusNode fieldFocusNode, VoidCallback onFieldSubmitted) {
+              
+              // Sync logic
+              if (textEditingController.text != controller.text) {
+                textEditingController.text = controller.text;
+              }
+              controller.addListener(() {
+                if (textEditingController.text != controller.text) {
+                  textEditingController.text = controller.text;
+                }
+              });
+
+              return TextField(
+                controller: textEditingController,
+                focusNode: focusNode ?? fieldFocusNode,
+                keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
+                inputFormatters: isNumeric ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-]'))] : null,
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: ERPTheme.textDark),
+                decoration: _inputDecoration(),
+                onChanged: (val) {
+                  controller.text = uppercase ? val.toUpperCase() : val;
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  InputDecoration _inputDecoration() {
+    return InputDecoration(
+      filled: true,
+      fillColor: Colors.white,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: ERPTheme.cardBorder)),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: ERPTheme.cardBorder)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: const BorderSide(color: ERPTheme.accentBlue)),
+    );
   }
 }
