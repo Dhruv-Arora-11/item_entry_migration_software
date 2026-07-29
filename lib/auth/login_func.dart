@@ -1,5 +1,9 @@
-import 'package:app/HR/hr_dashboard.dart';
-import 'package:app/store/Store_home_screen.dart';
+import 'package:app/departments/FIBC/MainDashboardFIBC.dart';
+import 'package:app/departments/Production/Dashboard.dart';
+import 'package:app/departments/dept_dashboard.dart';
+import 'package:app/departments/gate/gate_entry_homeScreen.dart';
+import 'package:app/store/FIBC_Part/production_log_page.dart';
+import 'package:app/store/Dashboard.dart';
 import 'package:app/super_admin/super_admin.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -32,6 +36,21 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => isLoading = true);
 
     try {
+      if(username == "gate1" && password == "pass1"){
+        Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const GateEntryScreen(),
+            ),
+          );
+      }else if (username == 'fibc' && password == "fibc") {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const FibcDashboard(),
+            ),
+          );
+      }
       var query = await FirebaseFirestore.instance
           .collection("users")
           .where("username", isEqualTo: username)
@@ -54,14 +73,23 @@ class _LoginScreenState extends State<LoginScreen> {
 
         String department = currentUser?['department_name'] ?? "";
 
-        if (role == "super_admin") {
+        if(department == "production"){
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ProdDashboard(),
+            ),
+          );
+        }
+
+        else if (role == "super_admin") {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
               builder: (_) => const SuperAdminScreen(),
             ),
           );
-        } else {
+        }else {
           if (department == "") {
             Navigator.pushReplacement(
               context,

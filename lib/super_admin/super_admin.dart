@@ -1,6 +1,7 @@
 import 'package:app/store/Item_related_services.dart';
 import 'package:app/store/viewing_item.dart';
 import 'package:app/super_admin/RequestPannel.dart';
+import 'package:app/super_admin/missing_items_dashboard.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -17,8 +18,6 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController department_controller = TextEditingController();
 
-
-
   bool create = false;
   bool read = false;
   bool update = false;
@@ -29,57 +28,45 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
 
   // for creating departments like HR, Productions etc.
   Future<void> createDepartment() async {
+    String departmentName = department_controller.text.trim();
 
-  String departmentName =
-      department_controller.text.trim();
+    if (departmentName.isEmpty) {
+      return;
+    }
 
-  if (departmentName.isEmpty) {
-    return;
-  }
+    var existing = await FirebaseFirestore.instance
+        .collection("departments")
+        .where(
+          "name",
+          isEqualTo: departmentName,
+        )
+        .get();
 
-  var existing = await FirebaseFirestore
-      .instance
-      .collection("departments")
-      .where(
-        "name",
-        isEqualTo: departmentName,
-      )
-      .get();
-
-  if (existing.docs.isNotEmpty) {
-
-    ScaffoldMessenger.of(context)
-        .showSnackBar(
-      const SnackBar(
-        content: Text(
-          "Department already exists",
+    if (existing.docs.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "Department already exists",
+          ),
         ),
+      );
+
+      return;
+    }
+
+    await FirebaseFirestore.instance.collection("departments").add({
+      "name": departmentName,
+      "created_at": FieldValue.serverTimestamp(),
+    });
+
+    department_controller.clear();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Department Created"),
       ),
     );
-
-    return;
   }
-
-  await FirebaseFirestore.instance
-      .collection("departments")
-      .add({
-
-    "name": departmentName,
-
-    "created_at":
-        FieldValue.serverTimestamp(),
-  });
-
-  department_controller.clear();
-
-  ScaffoldMessenger.of(context)
-      .showSnackBar(
-    const SnackBar(
-      content:
-          Text("Department Created"),
-    ),
-  );
-}
 
   // ✅ CREATE USER
   Future<void> createUser() async {
@@ -202,128 +189,85 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
                 ),
 
                 Card(
-  elevation: 3,
+                  elevation: 3,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "Create Department",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: department_controller,
+                          decoration: const InputDecoration(
+                            labelText: "Department Name",
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.business),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: createDepartment,
+                            child: const Text(
+                              "Create Department",
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        const Text(
+                          "Departments",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        StreamBuilder<QuerySnapshot>(
+                          stream: FirebaseFirestore.instance
+                              .collection("departments")
+                              .snapshots(),
+                          builder: (context, snapshot) {
+                            if (!snapshot.hasData) {
+                              return const Center(
+                                child: CircularProgressIndicator(),
+                              );
+                            }
 
-  shape: RoundedRectangleBorder(
-    borderRadius:
-        BorderRadius.circular(16),
-  ),
+                            var docs = snapshot.data!.docs;
 
-  child: Padding(
-    padding: const EdgeInsets.all(16),
+                            if (docs.isEmpty) {
+                              return const Text(
+                                "No departments",
+                              );
+                            }
 
-    child: Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+                            return Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              children: docs.map((doc) {
+                                var d = doc.data() as Map<String, dynamic>;
 
-      children: [
-
-        const Text(
-          "Create Department",
-
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight:
-                FontWeight.bold,
-          ),
-        ),
-
-        const SizedBox(height: 16),
-
-        TextField(
-          controller:
-              department_controller,
-
-          decoration:
-              const InputDecoration(
-            labelText:
-                "Department Name",
-
-            border:
-                OutlineInputBorder(),
-
-            prefixIcon:
-                Icon(Icons.business),
-          ),
-        ),
-
-        const SizedBox(height: 16),
-
-        SizedBox(
-          width: double.infinity,
-
-          child: ElevatedButton(
-            onPressed:
-                createDepartment,
-
-            child: const Text(
-              "Create Department",
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 20),
-
-        const Text(
-          "Departments",
-
-          style: TextStyle(
-            fontWeight:
-                FontWeight.bold,
-          ),
-        ),
-
-        const SizedBox(height: 10),
-
-        StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore
-              .instance
-              .collection(
-                  "departments")
-              .snapshots(),
-
-          builder:
-              (context, snapshot) {
-
-            if (!snapshot.hasData) {
-              return const Center(
-                child:
-                    CircularProgressIndicator(),
-              );
-            }
-
-            var docs =
-                snapshot.data!.docs;
-
-            if (docs.isEmpty) {
-              return const Text(
-                "No departments",
-              );
-            }
-
-            return Wrap(
-              spacing: 10,
-              runSpacing: 10,
-
-              children: docs.map((doc) {
-
-                var d =
-                    doc.data()
-                        as Map<String,
-                            dynamic>;
-
-                return Chip(
-                  label:
-                      Text(d['name']),
-                );
-              }).toList(),
-            );
-          },
-        ),
-      ],
-    ),
-  ),
-),
+                                return Chip(
+                                  label: Text(d['name']),
+                                );
+                              }).toList(),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
 
                 const SizedBox(height: 16),
 
@@ -361,77 +305,57 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
                             labelText: "Role",
                             border: OutlineInputBorder(),
                           ),
-                          items:  [
-                            DropdownMenuItem(value: "user", child: Text("User")),
-                            DropdownMenuItem(value: "super_admin",child: Text("Super Admin")),
-                            DropdownMenuItem(value: "Department", child: Text("Create Department")),
+                          items: [
+                            DropdownMenuItem(
+                                value: "user", child: Text("User")),
+                            DropdownMenuItem(
+                                value: "super_admin",
+                                child: Text("Super Admin")),
+                            DropdownMenuItem(
+                                value: "Department",
+                                child: Text("Create Department")),
                           ],
                           onChanged: (val) => setState(() => role = val!),
                         ),
-
                         if (role == "Department")
+                          StreamBuilder<QuerySnapshot>(
+                            stream: FirebaseFirestore.instance
+                                .collection("departments")
+                                .snapshots(),
+                            builder: (context, snapshot) {
+                              if (!snapshot.hasData) {
+                                return const SizedBox();
+                              }
 
-  StreamBuilder<QuerySnapshot>(
+                              var docs = snapshot.data!.docs;
 
-    stream: FirebaseFirestore
-        .instance
-        .collection("departments")
-        .snapshots(),
-  
-    builder: (context, snapshot) {
+                              return Padding(
+                                padding: const EdgeInsets.only(
+                                  top: 12,
+                                ),
+                                child: DropdownButtonFormField(
+                                  value: selectedDepartment,
+                                  decoration: const InputDecoration(
+                                    labelText: "Department",
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  items: docs.map((doc) {
+                                    var d = doc.data() as Map<String, dynamic>;
 
-      if (!snapshot.hasData) {
-        return const SizedBox();
-      }
-
-      var docs = snapshot.data!.docs;
-
-      return Padding(
-        padding:
-            const EdgeInsets.only(
-          top: 12,
-        ),
-
-        child:
-            DropdownButtonFormField(
-          value:
-              selectedDepartment,
-
-          decoration:
-              const InputDecoration(
-            labelText:
-                "Department",
-
-            border:
-                OutlineInputBorder(),
-          ),
-
-          items: docs.map((doc) {
-
-            var d = doc.data()
-                as Map<String,
-                    dynamic>;
-
-            return DropdownMenuItem(
-              value: d['name'],
-
-              child:
-                  Text(d['name']),
-            );
-          }).toList(),
-
-          onChanged: (val) {
-
-            setState(() {
-
-              selectedDepartment =
-                  val.toString();
-            });
-          },
-        ),
-      );
-    },
-  ),
+                                    return DropdownMenuItem(
+                                      value: d['name'],
+                                      child: Text(d['name']),
+                                    );
+                                  }).toList(),
+                                  onChanged: (val) {
+                                    setState(() {
+                                      selectedDepartment = val.toString();
+                                    });
+                                  },
+                                ),
+                              );
+                            },
+                          ),
                         const SizedBox(height: 16),
                         const Align(
                           alignment: Alignment.centerLeft,
@@ -494,7 +418,7 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
                 GridView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  itemCount: 3,
+                  itemCount: 4, // 🔥 Changed from 3 to 4
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
                     crossAxisSpacing: 12,
@@ -517,12 +441,10 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
                         "color": Colors.orange,
                         "onTap": () {
                           Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const GroupSubgroupItemsView(
-                                  isSuperAdmin: true),
-                            ),
-                          );
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => const GroupSubgroupItemsView(
+                                      isSuperAdmin: true)));
                         }
                       },
                       {
@@ -531,17 +453,27 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
                         "color": Colors.blue,
                         "onTap": () {
                           Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const RequestPanelScreen(),
-                            ),
-                          );
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => const RequestPanelScreen()));
+                        }
+                      },
+                      // 🔥 NEW ACTION CARD
+                      {
+                        "title": "Missing Item Reports",
+                        "icon": Icons.warning_amber_rounded,
+                        "color": Colors.deepPurple,
+                        "onTap": () {
+                          Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) =>
+                                      const MissingItemsReportDashboard()));
                         }
                       },
                     ];
 
                     final a = actions[index];
-
                     return _actionCard(
                       a["title"] as String,
                       a["icon"] as IconData,

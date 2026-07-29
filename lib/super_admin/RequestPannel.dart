@@ -62,97 +62,175 @@ class RequestPanelScreen extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           itemCount: docs.length,
           itemBuilder: (context, i) {
-            var doc = docs[i];
-            var d = doc.data() as Map<String, dynamic>;
+  var doc = docs[i];
+  var d = doc.data() as Map<String, dynamic>;
 
-            return Card(
-              elevation: 2,
-              margin: const EdgeInsets.symmetric(vertical: 6),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 🔹 ITEM NAME
-                    Text(
-                      d['item_name'] ?? "",
-                      style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.bold),
+  List<dynamic> items = d['items'] ?? [];
+
+  String title = "No Items";
+  DateTime? minDate;
+  int totalQty = 0;
+
+  if (items.isNotEmpty) {
+    title = items.first['item_name'] ?? "Unknown Item";
+
+    if (items.length > 1) {
+      title += " + ${items.length - 1} more";
+    }
+
+    for (var item in items) {
+      totalQty +=
+          int.tryParse(item['requested_qty'].toString()) ?? 0;
+
+      if (item['due_date'] != null) {
+        DateTime dt =
+            (item['due_date'] as Timestamp).toDate();
+
+        if (minDate == null || dt.isBefore(minDate)) {
+          minDate = dt;
+        }
+      }
+    }
+  }
+
+  return Card(
+    elevation: 2,
+    margin: const EdgeInsets.symmetric(vertical: 6),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: InkWell(
+      onTap: () {
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: Text(title),
+            content: SizedBox(
+              width: 500,
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: items.length,
+                itemBuilder: (_, index) {
+                  final item = items[index];
+
+                  return ListTile(
+                    title: Text(
+                      item['item_name'] ?? '',
                     ),
-
-                    const SizedBox(height: 6),
-
-                    Text(
-                      d['due_date'] != null
-                          ? "Due: ${d['due_date'].toDate().day}-${d['due_date'].toDate().month}-${d['due_date'].toDate().year}"
-                          : "No Due Date",
+                    subtitle: Text(
+                      "Qty: ${item['requested_qty']}",
                     ),
-                    const SizedBox(height: 6),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
 
-                    // 🔹 DETAILS
-                    Text("Qty: ${d['requested_qty']}"),
-                    Text("Dept: ${d['department']}"),
+            const SizedBox(height: 6),
 
-                    const SizedBox(height: 6),
+            Text(
+              minDate != null
+                  ? "Due: ${minDate.day}-${minDate.month}-${minDate.year}"
+                  : "No Due Date",
+            ),
 
-                    // 🔹 STATUS TAG
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: color.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        status.toUpperCase(),
-                        style: TextStyle(
-                            color: color, fontWeight: FontWeight.bold),
-                      ),
-                    ),
+            const SizedBox(height: 6),
 
-                    const SizedBox(height: 10),
+            Text("Qty: $totalQty"),
+            Text("Dept: ${d['department']}"),
 
-                    // 🔹 ACTIONS
-                    if (actions)
-                      Row(
-                        children: [
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green),
-                            onPressed: () {
-                              doc.reference.update({
-                                "status": "approved",
-                                "approved_by": "super_admin",
-                                "approved_at": FieldValue.serverTimestamp(),
-                                "store_status": "pending",
-                              });
-                            },
-                            icon: const Icon(Icons.check),
-                            label: const Text("Approve"),
-                          ),
-                          const SizedBox(width: 10),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red),
-                            onPressed: () {
-                              doc.reference.update({
-                                "status": "rejected",
-                                "rejected_by": "super_admin",
-                                "rejected_at": FieldValue.serverTimestamp(),
-                              });
-                            },
-                            icon: const Icon(Icons.close),
-                            label: const Text("Reject"),
-                          ),
-                        ],
-                      )
-                  ],
+            const SizedBox(height: 6),
+
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 4,
+              ),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.15),
+                borderRadius:
+                    BorderRadius.circular(8),
+              ),
+              child: Text(
+                status.toUpperCase(),
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-            );
-          },
+            ),
+
+            const SizedBox(height: 10),
+
+            if (actions)
+              Row(
+                children: [
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor:
+                          Colors.green,
+                    ),
+                    onPressed: () {
+                      doc.reference.update({
+                        "status": "approved",
+                        "approved_by":
+                            "super_admin",
+                        "approved_at":
+                            FieldValue
+                                .serverTimestamp(),
+                        "store_status":
+                            "pending",
+                      });
+                    },
+                    icon: const Icon(Icons.check),
+                    label:
+                        const Text("Approve"),
+                  ),
+
+                  const SizedBox(width: 10),
+
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor:
+                          Colors.red,
+                    ),
+                    onPressed: () {
+                      doc.reference.update({
+                        "status": "rejected",
+                        "rejected_by":
+                            "super_admin",
+                        "rejected_at":
+                            FieldValue
+                                .serverTimestamp(),
+                      });
+                    },
+                    icon: const Icon(Icons.close),
+                    label:
+                        const Text("Reject"),
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
         );
       },
     );

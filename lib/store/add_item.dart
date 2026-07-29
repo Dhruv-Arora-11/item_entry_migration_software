@@ -3,8 +3,6 @@ import 'package:app/store/Item_related_services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
-
-
 class add_item extends StatefulWidget {
   const add_item({super.key});
 
@@ -16,7 +14,7 @@ class _add_itemState extends State<add_item> {
   String? selectedGroup;
   String? selectedSubgroup;
   String? selectedUnit;
-  
+
   final service = ItemService();
 
   final TextEditingController itemCodeController = TextEditingController();
@@ -51,14 +49,12 @@ class _add_itemState extends State<add_item> {
     });
   }
 
-  
   String get generatedItemCode {
     if (selectedGroup == null || selectedSubgroup == null) {
       return "";
     }
 
     int subgroupNo = subgroupNumbers["$selectedGroup-$selectedSubgroup"] ?? 0;
-
 
     return "G- $selectedGroup | SG-$subgroupNo | Auto";
   }
@@ -69,44 +65,42 @@ class _add_itemState extends State<add_item> {
     fetchGroups();
   }
 
- Future<void> fetchGroups() async {
-  var snapshot = await FirebaseFirestore.instance.collection("groups").get();
+  Future<void> fetchGroups() async {
+    var snapshot = await FirebaseFirestore.instance.collection("groups").get();
 
-  List<String> tempGroups = [];
-  Map<String, List<Map<String, dynamic>>> tempSubgroups = {};
-  Map<String, int> tempSubgroupNumbers = {};
+    List<String> tempGroups = [];
+    Map<String, List<Map<String, dynamic>>> tempSubgroups = {};
+    Map<String, int> tempSubgroupNumbers = {};
 
-  for (var doc in snapshot.docs) {
-    var data = doc.data();
+    for (var doc in snapshot.docs) {
+      var data = doc.data();
 
-    String shortDesc = data['short_des'] ?? "";
-    List sub = List.from(data['subgroups'] ?? []);
+      String shortDesc = data['short_des'] ?? "";
+      List sub = List.from(data['subgroups'] ?? []);
 
-    List<Map<String, dynamic>> cleanSubgroups = [];
+      List<Map<String, dynamic>> cleanSubgroups = [];
 
-    for (var s in sub) {
-      if (s is Map<String, dynamic>) {
-        cleanSubgroups.add(s);
+      for (var s in sub) {
+        if (s is Map<String, dynamic>) {
+          cleanSubgroups.add(s);
 
-        tempSubgroupNumbers["$shortDesc-${s['name']}"] =
-            s['subgroup_no'];
+          tempSubgroupNumbers["$shortDesc-${s['name']}"] = s['subgroup_no'];
+        }
+      }
+
+      if (shortDesc.isNotEmpty) {
+        tempGroups.add(shortDesc);
+        tempSubgroups[shortDesc] = cleanSubgroups;
       }
     }
 
-    if (shortDesc.isNotEmpty) {
-      tempGroups.add(shortDesc);
-      tempSubgroups[shortDesc] = cleanSubgroups;
-    }
+    setState(() {
+      groups = tempGroups;
+      subgroups = tempSubgroups;
+      subgroupNumbers = tempSubgroupNumbers;
+      isLoading = false;
+    });
   }
-
-  setState(() {
-    groups = tempGroups;
-    subgroups = tempSubgroups;
-    subgroupNumbers = tempSubgroupNumbers;
-    isLoading = false;
-  });
-}
-
 
   Future<void> saveItem() async {
     if (selectedGroup == null ||
@@ -137,20 +131,19 @@ class _add_itemState extends State<add_item> {
       int subgroupNo = subgroupNumbers["$selectedGroup-$selectedSubgroup"] ?? 0;
 
       // 🔥 CHECK DUPLICATE
-var duplicateCheck = await FirebaseFirestore.instance
-    .collection("Items")
-    .where("Item_Name", isEqualTo: itemNameController.text.trim().toLowerCase())
-    .where("Group_Name", isEqualTo: selectedGroup)
-    .where("SubGroup_Name", isEqualTo: selectedSubgroup)
-    .get();
+      var duplicateCheck = await FirebaseFirestore.instance
+          .collection("Items")
+          .where("Item_Name",
+              isEqualTo: itemNameController.text.trim().toLowerCase())
+          .where("Group_Name", isEqualTo: selectedGroup)
+          .where("SubGroup_Name", isEqualTo: selectedSubgroup)
+          .get();
 
-if (duplicateCheck.docs.isNotEmpty) {
-  _showError("Item already exists in this subgroup!");
-  return;
-}
+      if (duplicateCheck.docs.isNotEmpty) {
+        _showError("Item already exists in this subgroup!");
+        return;
+      }
       int itemNo = await getNextItemNumber(doc.id);
-
-      
 
       String itemCode = "$groupNo-$subgroupNo-$itemNo";
 
@@ -186,8 +179,8 @@ if (duplicateCheck.docs.isNotEmpty) {
         "Create_at": FieldValue.serverTimestamp(),
         "Status": true,
         "Min_Stock": double.tryParse(
-  minStockController.text.trim().replaceAll(',', '.')
-) ?? 0,
+                minStockController.text.trim().replaceAll(',', '.')) ??
+            0,
       });
 
       _showSuccess("Item Added Successfully!");
@@ -422,18 +415,24 @@ if (duplicateCheck.docs.isNotEmpty) {
                                 children: [
                                   Expanded(
                                     child: TextField(
-  controller: stockController,
-  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-  decoration: const InputDecoration(labelText: "Opening Stock"),
-),
+                                      controller: stockController,
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                              decimal: true),
+                                      decoration: const InputDecoration(
+                                          labelText: "Opening Stock"),
+                                    ),
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: TextField(
-  controller: amountController,
-  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-  decoration: const InputDecoration(labelText: "Amount"),
-),
+                                      controller: amountController,
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                              decimal: true),
+                                      decoration: const InputDecoration(
+                                          labelText: "Amount"),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -444,10 +443,13 @@ if (duplicateCheck.docs.isNotEmpty) {
                                 children: [
                                   Expanded(
                                     child: TextField(
-  controller: sizeController,
-  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-  decoration: const InputDecoration(labelText: "Size"),
-),
+                                      controller: sizeController,
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                              decimal: true),
+                                      decoration: const InputDecoration(
+                                          labelText: "Size"),
+                                    ),
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
@@ -482,10 +484,13 @@ if (duplicateCheck.docs.isNotEmpty) {
                               const SizedBox(height: 28),
 
                               TextField(
-  controller: minStockController,
-  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-  decoration: const InputDecoration(labelText: "Minimum Stock"),
-),
+                                controller: minStockController,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                        decimal: true),
+                                decoration: const InputDecoration(
+                                    labelText: "Minimum Stock"),
+                              ),
 
                               const SizedBox(height: 28),
 

@@ -1,4 +1,4 @@
-import 'package:app/store/auth/login_func.dart';
+import 'package:app/auth/login_func.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'firebase_options.dart';
@@ -18,7 +18,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Store Manager',
+      title: 'Kulvir Textile Pvt. Ltd.',
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(

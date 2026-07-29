@@ -1,10 +1,6 @@
-import 'package:app/purchase_order/download_professional_pdf.dart';
+import 'package:app/store/purchase_order/download_professional_pdf.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:pdf/pdf.dart';
-import 'dart:typed_data';
-import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 
 class PurchaseOrderScreen extends StatefulWidget {
   const PurchaseOrderScreen({super.key});
@@ -14,7 +10,11 @@ class PurchaseOrderScreen extends StatefulWidget {
 }
 
 class _PurchaseOrderScreenState extends State<PurchaseOrderScreen> {
+
+  List<String> departmentOptions = [];
+
   // 🔹 HEADER CONTROLLERS
+  
   final orderNo = TextEditingController();
   final department = TextEditingController();
   final partyName = TextEditingController();
@@ -39,9 +39,16 @@ final statusController = TextEditingController();
 final amountInWordsController = TextEditingController();
 
   DateTime selectedDate = DateTime.now();
-
-  // 🔹 ITEMS
   List<Map<String, dynamic>> items = [];
+  Map<String, Map<String, dynamic>> partyDataMap = {}; 
+  List<String> partyOptions = [];
+
+  Future<void> fetchDepartments() async {
+  final snapshot = await FirebaseFirestore.instance.collection("departments").get();
+  setState(() {
+    departmentOptions = snapshot.docs.map((doc) => doc['name'].toString()).toList();
+  });
+}
 
   void addItemRow() {
     setState(() {
@@ -122,11 +129,55 @@ final amountInWordsController = TextEditingController();
     );
   }
 
+  Future<void> fetchParties() async {
+  final snapshot = await FirebaseFirestore.instance.collection("party_master").get();
+  
+  Map<String, Map<String, dynamic>> tempMap = {};
+  for (var doc in snapshot.docs) {
+    var data = doc.data();
+    String name = data['Vendor_Name']?.toString() ?? "Unknown";
+    tempMap[name] = data; // Store the whole object
+  }
+  
+  setState(() {
+    partyDataMap = tempMap;
+    partyOptions = tempMap.keys.toList();
+  });
+}
+
   @override
   void initState() {
     super.initState();
     addItemRow();
+    generateOrderNumber();
+    fetchDepartments();
+    fetchParties();
+
+    termsConditions.text = 
+      "* PAYMENT-30 DAYS\n"
+      "* FRIGHT CHARGE-BHILWARA\n"
+      "* F.O.R.BHILWARA";
   }
+
+  Future<void> generateOrderNumber() async {
+
+  var snapshot = await FirebaseFirestore.instance
+      .collection("purchase_orders")
+      .orderBy("order_no", descending: true)
+      .limit(1)
+      .get();
+
+  int nextOrderNo = 1001; // Default starting number
+
+  if (snapshot.docs.isNotEmpty) {
+    int lastOrderNo = int.tryParse(snapshot.docs.first['order_no'].toString()) ?? 1000;
+    nextOrderNo = lastOrderNo + 1;
+  }
+
+  setState(() {
+    orderNo.text = nextOrderNo.toString();
+  });
+}
 
   @override
   Widget build(BuildContext context) {
@@ -155,41 +206,74 @@ final amountInWordsController = TextEditingController();
                       ),
                     ),
                     const SizedBox(height: 16),
-                    TextField(
-                      controller: orderNo,
-                      decoration: const InputDecoration(
-                        labelText: "Order No (Auto Increase)",
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
+Text(
+  "Order No: ${orderNo.text.isEmpty ? 'Loading...' : orderNo.text}",
+  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+),
                     const SizedBox(height: 12),
-                    TextField(
-                      controller: department,
-                      decoration: const InputDecoration(
-                        labelText: "Department",
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
+                    Autocomplete<String>(
+  optionsBuilder: (TextEditingValue textEditingValue) {
+    if (textEditingValue.text.isEmpty) {
+      return departmentOptions;
+    }
+    return departmentOptions.where((String option) {
+      return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
+    });
+  },
+  onSelected: (String selection) {
+    department.text = selection; // Autofill the controller
+  },
+  fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+    // Sync the local controller with the widget's controller
+    controller.text = department.text; 
+    return TextField(
+      controller: controller,
+      focusNode: focusNode,
+      decoration: const InputDecoration(
+        labelText: "Department",
+        border: OutlineInputBorder(),
+        suffixIcon: Icon(Icons.arrow_drop_down),
+      ),
+      onChanged: (val) => department.text = val,
+    );
+  },
+),
                     const SizedBox(height: 12),
-                    TextField(
-                      controller: partyName,
-                      decoration: const InputDecoration(
-                        labelText: "Party Name",
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
+                    Autocomplete<String>(
+  optionsBuilder: (TextEditingValue textEditingValue) {
+    if (textEditingValue.text.isEmpty) return partyOptions;
+    return partyOptions.where((String option) =>
+        option.toLowerCase().contains(textEditingValue.text.toLowerCase()));
+  },
+  onSelected: (String selection) {
+    partyName.text = selection;
+    
+    // Autofill additional fields based on selected party
+    var data = partyDataMap[selection];
+    if (data != null) {
+      setState(() {
+        addressController.text = "${data['Address'] ?? ''} ${data['Address2'] ?? ''}";
+        gstinController.text = data['GST']?.toString() ?? '';
+        emailController.text = data['email']?.toString() ?? '';
+      });
+    }
+  },
+  fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+    controller.text = partyName.text;
+    return TextField(
+      controller: controller,
+      focusNode: focusNode,
+      decoration: const InputDecoration(
+        labelText: "Party Name",
+        border: OutlineInputBorder(),
+        suffixIcon: Icon(Icons.search),
+      ),
+      onChanged: (val) => partyName.text = val,
+    );
+  },
+),
                     const SizedBox(height: 12),
-                    TextField(
-                      controller: termsConditions,
-                      maxLines: 3,
-                      decoration: const InputDecoration(
-                        labelText: "Terms & Conditions",
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-
-                    const SizedBox(height: 12),
-
+                    
 TextField(
   controller: addressController,
   maxLines: 2,
@@ -264,81 +348,6 @@ TextField(
 ),
 
 
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // 🔹 ORDER DETAILS
-            Card(
-              elevation: 3,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      "Order Details",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: orderNo,
-                            decoration: const InputDecoration(
-                              labelText: "Order No",
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () async {
-                              var picked = await showDatePicker(
-                                context: context,
-                                initialDate: DateTime.now(),
-                                firstDate: DateTime(2020),
-                                lastDate: DateTime(2100),
-                              );
-
-                              if (picked != null) {
-                                setState(() {
-                                  selectedDate = picked;
-                                });
-                              }
-                            },
-                            child: Text(
-                              "${selectedDate.day}/${selectedDate.month}/${selectedDate.year}",
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    TextField(
-                      controller: partyOrderNo,
-                      decoration: const InputDecoration(
-                        labelText: "Party Order No",
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: remarks,
-                      decoration: const InputDecoration(
-                        labelText: "Remarks",
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
                   ],
                 ),
               ),
